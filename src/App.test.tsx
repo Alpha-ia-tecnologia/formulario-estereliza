@@ -105,6 +105,40 @@ describe('fluxo completo', () => {
     await waitFor(() => expect(document.activeElement?.id).toBe('pergunta-7-3'))
   })
 
+  it('termina o relatório com a síntese, que acompanha as respostas e pode ser copiada', async () => {
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.8@teresina': 'offline' })
+    const synthesis = screen.getByRole('region', { name: 'Síntese' })
+    const lastSection = screen.getByRole('region', { name: /Documentos para anexar/ })
+
+    expect(lastSection.compareDocumentPosition(synthesis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(synthesis).getByText(/para 1 unidade \(Teresina\), respondido por Ana/)).toBeInTheDocument()
+    expect(within(synthesis).getByText(/^Precisa funcionar sem internet em Teresina/).closest('li')).toHaveAttribute('data-tone', 'alert')
+    expect(within(synthesis).getByText('Unidade').closest('li')).toHaveTextContent('1 Unidade')
+
+    await user.click(within(synthesis).getByRole('button', { name: 'Copiar síntese' }))
+    await waitFor(() => expect(within(synthesis).getByRole('status')).toHaveTextContent('Síntese copiada'))
+    expect(await navigator.clipboard.readText()).toMatch(/^SÍNTESE\n\nLevantamento de requisitos/)
+  })
+
+  it('o atalho do topo da revisão leva à síntese e põe o foco nela', async () => {
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana' })
+
+    await user.click(screen.getByRole('button', { name: 'Ver a síntese no fim do relatório' }))
+
+    expect(screen.getByRole('region', { name: 'Síntese' })).toHaveFocus()
+  })
+
+  it('avisa quando não consegue copiar a síntese', async () => {
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana' })
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('permissão negada'))
+    const synthesis = screen.getByRole('region', { name: 'Síntese' })
+
+    await user.click(within(synthesis).getByRole('button', { name: 'Copiar síntese' }))
+
+    expect(await within(synthesis).findByRole('button', { name: 'Não foi possível copiar' })).toBeInTheDocument()
+    expect(within(synthesis).getByRole('status')).toHaveTextContent('Não foi possível copiar')
+  })
+
   it('recomeça depois de confirmar', async () => {
     saveDraft({ ...createDraft(), answers: { 'ident.nome': 'Ana' } })
     const user = renderApp()

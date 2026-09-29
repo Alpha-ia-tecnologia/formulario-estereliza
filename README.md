@@ -38,6 +38,11 @@ verde-água `#4ab39d`, azul-marinho `#33526b`, botões em pílula e o logo de 20
 - **Matrizes** em controle segmentado (prioridades na seção 5, comum/por unidade na 7.1), com contagem por nível.
 - **Anexos (seção 9)** direto no formulário (arrastar e soltar), ou "Envio depois" / "Não temos".
 - **Revisão** com filtro das perguntas em branco e salto direto para qualquer pergunta.
+- **Síntese no fim do relatório**, gerada das respostas (regras em `src/form/synthesis.ts` e `attention.ts`, sem
+  serviço externo): abertura com quem respondeu e o percentual preenchido, números somados das unidades, pontos de
+  atenção (operação offline, prazo próximo, decisões em aberto, equipamentos a providenciar, lacunas) e resumo por tema,
+  com as respostas agrupadas por unidade. Atualiza ao vivo, tem "Copiar síntese" e sai no fim do `resumo.md` e no
+  campo `sintese` do `respostas.json`.
 - **Exportação**: pacote `.zip` com `respostas.json`, `resumo.md` e `anexos/`; também imprimir/salvar PDF e `.json` avulso.
 - **Importação**: "Continuar de um arquivo" reabre um pacote em outro computador (formato v2; pacotes da versão por
   unidade são recusados com aviso).

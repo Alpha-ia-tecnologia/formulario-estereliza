@@ -74,6 +74,7 @@ describe('sanitizeAnswers', () => {
 
   it('aceita apenas datas no formato AAAA-MM-DD', () => {
     expect(sanitizeAnswers({ 'ident.data': '2026-09-28', '8.3.data': '28/09/2026' })).toEqual({ 'ident.data': '2026-09-28' })
+    expect(sanitizeAnswers({ 'ident.data': '2026-02-30', '8.3.data': '2026-13-01' })).toEqual({})
   })
 
   it('retorna vazio para entradas que não são objetos', () => {

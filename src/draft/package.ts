@@ -3,6 +3,7 @@ import { DOCUMENTS, selectedUnits, unitLabel } from '../form/options'
 import { summarize, toMarkdown } from '../form/format'
 import { isRecord, pruneHidden } from '../form/progress'
 import { FORM_ID, FORM_VERSION, ImportError, parseExport } from '../form/sanitize'
+import { synthesisToMarkdown, synthesize } from '../form/synthesis'
 import type { Answers } from '../form/types'
 import { MAX_FILE_BYTES, exportFileName, safeFileName, uniqueName } from '../lib/files'
 import type { Attachment } from './attachments'
@@ -56,6 +57,7 @@ export function buildExportJson({ answers, attachments, now = new Date() }: Expo
     respostas: clean,
     anexos: attachments.map((attachment) => ({ documento: attachment.docKey, nome: attachment.name, bytes: attachment.size })),
     resumo,
+    sintese: synthesize(clean, now),
   }
 }
 
@@ -69,7 +71,8 @@ export async function buildPackage(input: ExportInput): Promise<BuiltPackage> {
   const json = buildExportJson({ ...input, now })
   const files: Record<string, Uint8Array> = {
     [JSON_NAME]: strToU8(JSON.stringify(json, null, 2)),
-    [MARKDOWN_NAME]: strToU8(toMarkdown({ exportedAt: json.exportadoEm, answers: json.respostas })),
+    // O relatório termina com a síntese das respostas.
+    [MARKDOWN_NAME]: strToU8(`${toMarkdown({ exportedAt: json.exportadoEm, answers: json.respostas })}\n${synthesisToMarkdown(json.sintese)}`),
   }
   const taken = new Set<string>()
   for (const attachment of input.attachments) {

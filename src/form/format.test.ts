@@ -1,4 +1,4 @@
-import { formatDateBR, formatFieldValue, summarize, toMarkdown } from './format'
+import { formatDateBR, formatFieldValue, parseIsoDate, summarize, toMarkdown } from './format'
 import { getField } from './schema'
 import type { Field } from './types'
 
@@ -15,6 +15,14 @@ describe('formatação de respostas', () => {
   it('formata datas no padrão brasileiro', () => {
     expect(formatDateBR('2026-09-28')).toBe('28/09/2026')
     expect(formatDateBR('data ruim')).toBe('data ruim')
+  })
+
+  it('reconhece só datas que existem no calendário', () => {
+    expect(parseIsoDate('2026-02-28')).toEqual(new Date(2026, 1, 28))
+    expect(parseIsoDate('2028-02-29')).toEqual(new Date(2028, 1, 29))
+    expect(parseIsoDate('2026-02-30')).toBeNull()
+    expect(parseIsoDate('2026-13-01')).toBeNull()
+    expect(parseIsoDate('28/02/2026')).toBeNull()
   })
 
   it('usa o rótulo das opções', () => {

@@ -1,0 +1,201 @@
+/* ---------- Síntese no fim da revisão ---------- */
+.synthesis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-7);
+  padding: var(--space-6);
+  border: 1px solid var(--brand-tint-strong);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--brand-tint) 0%, var(--surface) 160px);
+  scroll-margin-top: calc(var(--header-height) + var(--space-5));
+  animation: rise var(--duration) var(--ease-out);
+}
+
+.synthesis__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.synthesis__title {
+  margin-top: var(--space-3);
+  font-size: var(--text-2xl);
+}
+
+.synthesis__copy {
+  flex: none;
+}
+
+.synthesis__headline {
+  max-width: 70ch;
+  color: var(--text);
+  font-size: var(--text-lg);
+  line-height: 1.5;
+}
+
+/* Sem contorno de foco no bloco inteiro: o salto até aqui já é o destaque */
+.synthesis:focus-visible {
+  box-shadow: none;
+}
+
+/* Números-chave em blocos, como os indicadores do topo da revisão.
+   A ordem no HTML (número, rótulo, observação) é a mesma da tela. */
+.synthesis__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.metric {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.metric__value {
+  color: var(--navy);
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.metric__label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.metric__detail {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.synthesis h3 {
+  margin-bottom: var(--space-3);
+  color: var(--navy);
+  font-size: var(--text-base);
+}
+
+.synthesis__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attention {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.attention svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.attention[data-tone='alert'] {
+  background: var(--warning-tint);
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.attention[data-tone='info'] {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.attention__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 6px 4px 0;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.synthesis__topics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.synthesis__topic li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.synthesis__topic li::before {
+  content: '';
+  position: absolute;
+  top: 0.6em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.synthesis__empty {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.review__jump {
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 760px) {
+  .synthesis {
+    padding: var(--space-5) var(--space-4);
+  }
+
+  .synthesis__topics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .synthesis {
+    break-before: page;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .synthesis__copy,
+  .review__jump {
+    display: none !important;
+  }
+
+  .metric,
+  .attention,
+  .synthesis__topic {
+    break-inside: avoid;
+  }
+}

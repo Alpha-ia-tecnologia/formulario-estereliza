@@ -4,11 +4,20 @@ import { AppHeader } from '../components/AppHeader'
 import { AlertIcon, ArrowIcon } from '../components/Icons'
 import { ReviewList } from '../components/ReviewList'
 import { SendPanel } from '../components/SendPanel'
+import { SynthesisPanel } from '../components/SynthesisPanel'
 import { useAttachments } from '../draft/AttachmentsContext'
 import type { DraftApi } from '../draft/useDraft'
 import { summarize } from '../form/format'
 import { selectedUnits, unitLabel } from '../form/options'
 import { missingRequired, overallProgress } from '../form/progress'
+import { prefersReducedMotion } from '../lib/transition'
+
+/** Leva à síntese e põe o foco nela, para o teclado e o leitor de tela seguirem o salto. */
+function showSynthesis() {
+  const target = document.getElementById('sintese')
+  target?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+  target?.focus({ preventScroll: true })
+}
 
 type ReviewScreenProps = {
   readonly draft: DraftApi
@@ -53,6 +62,15 @@ export function ReviewScreen({ draft, goToSection, goHome }: ReviewScreenProps) 
             <p className="review__units">
               <strong>Unidades atendidas:</strong> {unitsText}
             </p>
+            <p className="review__jump">
+              <button
+                type="button"
+                className="link-button"
+                onClick={showSynthesis}
+              >
+                Ver a síntese no fim do relatório
+              </button>
+            </p>
           </header>
 
           <div className="review__stats">
@@ -86,6 +104,8 @@ export function ReviewScreen({ draft, goToSection, goHome }: ReviewScreenProps) 
           )}
 
           <ReviewList summary={summary} isOnlyBlank={isOnlyBlank} onEdit={goToSection} />
+
+          <SynthesisPanel answers={answers} />
         </main>
 
         <SendPanel answers={answers} attachments={attachments.items} canExport={!isMissingRespondent && !attachments.loading} />

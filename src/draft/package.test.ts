@@ -60,6 +60,19 @@ describe('buildExportJson', () => {
     expect(json.resumo.find((row) => row.numero === '1.3')?.resposta).toBe('São Luís: Turnos')
     expect(json.resumo.find((row) => row.numero === '3.2')?.resposta).toBeNull()
   })
+
+  it('inclui a síntese estruturada, calculada só com as respostas exportadas', () => {
+    const json = buildExportJson({
+      answers: { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.8@teresina': 'offline', '2.8@sao-luis': 'instavel' },
+      attachments: [],
+      now: NOW,
+    })
+    expect(json.sintese.headline).toMatch(/^Levantamento de requisitos da Steriliza para 1 unidade \(Teresina\), respondido por Ana/)
+    expect(json.sintese.attention.map((point) => point.text)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^Precisa funcionar sem internet em Teresina/)]),
+    )
+    expect(json.sintese.attention.some((point) => point.text.includes('São Luís'))).toBe(false)
+  })
 })
 
 describe('pacote .zip', () => {
@@ -72,6 +85,8 @@ describe('pacote .zip', () => {
     expect(built.fileName).toBe('steriliza-requisitos-2026-09-28.zip')
     const entries = unzipSync(new Uint8Array(await built.blob.arrayBuffer()))
     expect(Object.keys(entries).sort()).toEqual([JSON_NAME, MARKDOWN_NAME, 'anexos/formularios/a (2).txt', 'anexos/formularios/a.txt'].sort())
+    const markdown = new TextDecoder().decode(entries[MARKDOWN_NAME])
+    expect(markdown.indexOf('## Síntese')).toBeGreaterThan(markdown.indexOf('## 9. Documentos para anexar'))
   })
 
   it('importa de volta um pacote exportado, com anexos', async () => {

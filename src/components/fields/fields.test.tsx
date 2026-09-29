@@ -39,8 +39,10 @@ describe('perguntas por unidade', () => {
     await user.click(within(within(hours).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Turnos' }))
     await user.click(within(within(hours).getByRole('radiogroup', { name: /^Teresina/ })).getByRole('radio', { name: '24 horas' }))
 
-    await waitFor(() => expect(savedAnswers()['1.3@sao-luis']).toBe('turnos'))
-    expect(savedAnswers()['1.3@teresina']).toBe('24h')
+    await waitFor(() => {
+      expect(savedAnswers()['1.3@sao-luis']).toBe('turnos')
+      expect(savedAnswers()['1.3@teresina']).toBe('24h')
+    })
     expect(within(within(hours).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Turnos' })).toBeChecked()
   })
 

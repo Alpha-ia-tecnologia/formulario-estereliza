@@ -9,6 +9,7 @@ import './styles/matrix.css'
 import './styles/per-unit.css'
 import './styles/welcome.css'
 import './styles/review.css'
+import './styles/synthesis.css'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Elemento #root não encontrado')

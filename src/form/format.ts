@@ -31,6 +31,15 @@ export function formatDateBR(value: string): string {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value
 }
 
+/** Data AAAA-MM-DD que existe no calendário, à meia-noite local; senão null (ex.: 2026-02-30). */
+export function parseIsoDate(value: string): Date | null {
+  const match = ISO_DATE.exec(value)
+  if (!match) return null
+  const [year, month, day] = [Number(match[1]), Number(match[2]) - 1, Number(match[3])]
+  const date = new Date(year, month, day)
+  return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day ? date : null
+}
+
 const labelOf = (options: readonly Option[], value: string) =>
   options.find((option) => option.value === value)?.label ?? value
 

@@ -1,3 +1,4 @@
+import { parseIsoDate } from './format'
 import { DOCUMENT_STATUSES, UNIT_IDS, unitKey } from './options'
 import { isOtherValue } from './other'
 import { isRecord } from './progress'
@@ -23,7 +24,6 @@ export class ImportError extends Error {
 }
 
 const DIGITS = /^\d{1,9}$/
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const DOCUMENT_VALUES: readonly string[] = DOCUMENT_STATUSES.map((status) => status.value)
 
 const cleanText = (value: unknown): string | undefined =>
@@ -46,7 +46,7 @@ function cleanValue(field: Field, value: unknown): AnswerValue | undefined {
   switch (field.kind) {
     case 'text': {
       const text = cleanText(value)
-      if (field.inputType === 'date') return text !== undefined && ISO_DATE.test(text) ? text : undefined
+      if (field.inputType === 'date') return text !== undefined && parseIsoDate(text) ? text : undefined
       return text
     }
     case 'number':

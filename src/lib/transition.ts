@@ -8,7 +8,7 @@ type ViewTransitionStarter = (update: () => void) => { readonly finished: Promis
 /** Tempo para o CSS de fallback terminar a animação de entrada. */
 const FALLBACK_MS = 500
 
-const prefersReducedMotion = (): boolean =>
+export const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**

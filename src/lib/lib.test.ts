@@ -1,3 +1,4 @@
+import { copyText } from './clipboard'
 import { exportFileName, formatBytes, safeFileName, uniqueName } from './files'
 import { formatPhoneBR } from './phone'
 import { parseRoute, toHash } from './route'
@@ -122,5 +123,57 @@ describe('arquivos', () => {
 
   it('monta o nome do pacote exportado', () => {
     expect(exportFileName(new Date('2026-09-28T12:00:00'), 'zip')).toBe('steriliza-requisitos-2026-09-28.zip')
+  })
+})
+
+describe('copyText', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    Reflect.deleteProperty(document, 'execCommand')
+  })
+
+  const stubExecCommand = (result: () => boolean) => {
+    const execCommand = vi.fn(result)
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
+    return execCommand
+  }
+
+  it('usa a Clipboard API quando existe', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+
+    await expect(copyText('síntese')).resolves.toBe(true)
+    expect(writeText).toHaveBeenCalledWith('síntese')
+  })
+
+  it('sem a Clipboard API, copia pela seleção de um campo oculto e devolve o foco', async () => {
+    vi.stubGlobal('navigator', {})
+    const button = document.body.appendChild(document.createElement('button'))
+    button.focus()
+    let selected = ''
+    const execCommand = stubExecCommand(() => {
+      const area = document.activeElement as HTMLTextAreaElement
+      selected = area.value.slice(area.selectionStart, area.selectionEnd)
+      return true
+    })
+
+    await expect(copyText('síntese')).resolves.toBe(true)
+
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(selected).toBe('síntese')
+    expect(document.querySelector('textarea')).toBeNull()
+    expect(button).toHaveFocus()
+    button.remove()
+  })
+
+  it('devolve false quando nenhum dos dois métodos funciona', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: () => Promise.reject(new Error('permissão negada')) } })
+    await expect(copyText('síntese')).resolves.toBe(false)
+
+    stubExecCommand(() => {
+      throw new Error('não suportado')
+    })
+    await expect(copyText('síntese')).resolves.toBe(false)
+    expect(document.querySelector('textarea')).toBeNull()
   })
 })
