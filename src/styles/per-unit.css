@@ -1,0 +1,176 @@
+/* ---------- Perguntas respondidas unidade por unidade ---------- */
+.unit-lanes {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.unit-lane {
+  position: relative;
+  display: grid;
+  animation: rise var(--duration) var(--ease-out) both;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  padding: 12px 16px;
+}
+
+.unit-lane + .unit-lane {
+  border-top: 1px solid var(--line);
+}
+
+/* A linha em edição ganha a barra verde, como a pergunta em foco */
+.unit-lane::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--brand);
+  transform: scaleY(0);
+  transition: transform var(--duration) var(--ease-out);
+}
+
+.unit-lane:focus-within::before {
+  transform: scaleY(1);
+}
+
+.unit-lane__name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--navy);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.unit-lane__state {
+  color: var(--brand-strong);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.unit-lane .choices {
+  gap: 8px;
+}
+
+.unit-lane .choice {
+  min-height: 40px;
+  padding: 7px 14px 7px 10px;
+  font-size: var(--text-sm);
+}
+
+.unit-lane .choice__box {
+  width: 20px;
+  height: 20px;
+}
+
+.unit-lane .choice-field__clear {
+  margin-top: 6px;
+}
+
+.unit-lane .text-field {
+  max-width: none;
+}
+
+.unit-lanes__repeat {
+  margin: 4px 16px 14px;
+}
+
+/* ---------- Números por unidade: unidades nas linhas, totais no fim ---------- */
+.number-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.number-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.number-table th,
+.number-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.number-table thead th {
+  background: var(--surface-alt);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* A coluna da unidade fica visível ao rolar a tabela no celular */
+.number-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.number-table thead th:first-child {
+  background: var(--surface-alt);
+}
+
+.number-table tbody th {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.number-table .input--cell {
+  min-width: 76px;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: var(--text-base);
+}
+
+.number-table__total {
+  color: var(--navy);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.number-table thead .number-table__total {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.number-table tfoot th,
+.number-table tfoot td {
+  border-bottom: 0;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.number-table tfoot .number-table__total {
+  color: #fff;
+}
+
+.number-table-wrap .number-grid__suffix {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 640px) {
+  .unit-lane {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px;
+  }
+}

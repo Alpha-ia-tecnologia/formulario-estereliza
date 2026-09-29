@@ -1,0 +1,69 @@
+/* Montserrat, a fonte do site steriliza.com.br — só o subconjunto latino,
+   que cobre todo o português. */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 800;
+  src: url('../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  /* Marca — cores do site e do logo Steriliza 2025 */
+  --brand: #4ab39d;          /* verde-água do site: acentos, barras, bordas */
+  --brand-strong: #2b7f6e;   /* mesmo tom escurecido para texto e botões (AA) */
+  --brand-hover: #236b5c;
+  --brand-tint: #e9f6f2;
+  --brand-tint-strong: #d3eee6;
+  --brand-deep: #0f3b33;
+  --logo-green: #036d37;
+  --logo-lime: #72b62f;
+  --navy: #33526b;           /* títulos e navegação do site */
+  --text: #2a4153;
+  --muted: #5f7283;
+  --subtle: #8b9aa7;         /* cinza do site: só decorativo e placeholders */
+  --surface: #ffffff;
+  --surface-alt: #f6f7f8;    /* fundo do rodapé do site */
+  --line: #e3e8ec;
+  --line-strong: #cfd8df;
+  --danger: #b4233c;
+  --danger-tint: #fdeef1;
+  --warning: #8a5a00;
+  --warning-tint: #fff5e0;
+
+  --font: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --text-2xl: clamp(1.75rem, 1.3rem + 1.8vw, 2.5rem);
+  --text-hero: clamp(2rem, 1.2rem + 3.4vw, 3.75rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  --radius-pill: 100px;      /* botões em pílula, como no site */
+  --radius-md: 14px;
+  --radius-sm: 8px;
+
+  --shadow-header: 0 2px 5px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 18px 50px -20px rgba(15, 59, 51, 0.28);
+  --shadow-lift: 0 5px 20px rgba(0, 0, 0, 0.18);
+  --focus-ring: 0 0 0 3px rgba(74, 179, 157, 0.45);
+
+  --header-height: 76px;
+  --rail-width: 300px;
+  --gutter: clamp(1rem, 5vw, 4.5rem);
+
+  --duration-fast: 120ms;
+  --duration: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

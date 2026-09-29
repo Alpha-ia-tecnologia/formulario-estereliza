@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+*.local
+.env
+.DS_Store
+# Estado local de ferramentas de agentes
+.claude-flow
