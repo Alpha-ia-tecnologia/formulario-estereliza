@@ -79,7 +79,7 @@ export const PRIORITY_LEVELS: readonly Option[] = [
 /** Acima deste número de módulos em alta, a primeira entrega tende a crescer demais. */
 export const HIGH_PRIORITY_SOFT_LIMIT = 5
 
-/** Cadastros e controles que podem ser comuns a todas as unidades ou separados. */
+/** Cadastros e configurações que podem ser comuns a todas as unidades ou separados. */
 export const SHARED_ITEMS: readonly Item[] = [
   { key: 'clientes', label: 'Cadastro de clientes', description: 'Hospitais, clínicas e contatos' },
   { key: 'contratos', label: 'Contratos e tabela de preços' },
@@ -88,6 +88,10 @@ export const SHARED_ITEMS: readonly Item[] = [
   { key: 'equipamentos', label: 'Equipamentos', description: 'Autoclaves, câmaras de ETO, seladoras' },
   { key: 'insumos', label: 'Estoque de insumos', description: 'Embalagens, indicadores, gás' },
   { key: 'pops', label: 'Procedimentos da qualidade (POPs)' },
+  { key: 'liberacao', label: 'Fluxo de liberação de lote' },
+  { key: 'etiqueta', label: 'Modelo de etiqueta' },
+  { key: 'relatorios-clientes', label: 'Relatórios para clientes' },
+  { key: 'documentos', label: 'Logo e dados nos documentos' },
 ]
 
 export const SHARING_LEVELS: readonly Option[] = [

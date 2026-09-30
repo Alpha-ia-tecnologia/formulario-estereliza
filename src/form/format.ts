@@ -1,6 +1,6 @@
 import { DOCUMENT_STATUSES, getUnit, selectedUnits, unitKey, unitLabel } from './options'
 import { optionLabel } from './other'
-import { fieldCompletion, isRecord, resolveOptions, visibleFields } from './progress'
+import { fieldCompletion, isRecord, visibleFields } from './progress'
 import { SECTIONS } from './schema'
 import type { AnswerValue, Answers, Field, Option } from './types'
 
@@ -70,7 +70,7 @@ function formatNumberGrid(field: Extract<Field, { kind: 'numberGrid' }>, value: 
 }
 
 /** Texto legível de um valor, ou null quando está em branco. */
-export function formatFieldValue(field: Field, value: AnswerValue | undefined, answers: Answers): string | null {
+export function formatFieldValue(field: Field, value: AnswerValue | undefined): string | null {
   if (value === undefined || fieldCompletion(field, value) === 0) return null
   switch (field.kind) {
     case 'text':
@@ -78,7 +78,7 @@ export function formatFieldValue(field: Field, value: AnswerValue | undefined, a
     case 'number':
       return `${String(value)}${field.suffix ? ` ${field.suffix}` : ''}`
     case 'single':
-      return optionLabel(field, resolveOptions(field, answers), String(value))
+      return optionLabel(field, field.options, String(value))
     case 'multi':
       return (value as readonly string[]).map((item) => optionLabel(field, field.options, item)).join(', ')
     case 'ranked':
@@ -103,13 +103,13 @@ export function formatFieldValue(field: Field, value: AnswerValue | undefined, a
 /** Linhas de um campo no resumo: uma por unidade nas perguntas feitas unidade por unidade. */
 function fieldEntries(field: Field, answers: Answers, showLabel: boolean): readonly SummaryEntry[] {
   if (!field.perUnit) {
-    return [{ label: showLabel ? field.label : undefined, text: formatFieldValue(field, answers[field.id], answers) }]
+    return [{ label: showLabel ? field.label : undefined, text: formatFieldValue(field, answers[field.id]) }]
   }
   return selectedUnits(answers).map((unit) => {
     const { city } = getUnit(unit)
     return {
       label: showLabel && field.label ? `${field.label} · ${city}` : city,
-      text: formatFieldValue(field, answers[unitKey(field.id, unit)], answers),
+      text: formatFieldValue(field, answers[unitKey(field.id, unit)]),
     }
   })
 }

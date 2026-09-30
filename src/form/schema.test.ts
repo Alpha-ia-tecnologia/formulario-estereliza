@@ -24,9 +24,42 @@ describe('schema do formulário', () => {
     }
   })
 
-  it('pergunta unidade por unidade só onde a operação muda entre unidades', () => {
+  it('pergunta unidade por unidade só volume, equipe e internet', () => {
     const perUnit = ALL_FIELDS.filter((field) => field.perUnit).map((field) => field.id)
-    expect(perUnit).toEqual(['1.1', '1.2', '1.3', '1.4', '1.5', '2.1', '2.6', '2.6.modelos', '2.7', '2.8'])
+    expect(perUnit).toEqual(['1.2', '1.4', '2.7'])
+  })
+
+  it('pergunta a equipe de cada unidade num total único de funcionários', () => {
+    const staff = getField('1.4')
+    expect(staff?.kind === 'numberGrid' && staff.items).toEqual([{ key: 'total', label: 'Funcionários' }])
+  })
+
+  it('oferece como piloto cada unidade, todas juntas ou ainda a definir', () => {
+    const pilot = getField('8.2')
+    expect(pilot?.kind === 'single' && pilot.options.map((option) => option.label)).toEqual([
+      'Sim: São Luís',
+      'Sim: Teresina',
+      'Sim: Maracanaú',
+      'Sim: Ananindeua',
+      'Não, todas juntas',
+      'Ainda não definido',
+    ])
+  })
+
+  it('sugere na 8.1 primeiro o que incomoda na 2.2, sem repetir itens', () => {
+    const ranked = getField('8.1')
+    if (ranked?.kind !== 'ranked' || typeof ranked.suggestions !== 'function') throw new Error('8.1 sem sugestões dinâmicas')
+    const suggestions = ranked.suggestions({ '2.2.incomoda': ['digitacao', 'lentidao', 'outra:Etiquetas ilegíveis'] })
+
+    expect(suggestions.slice(0, 4)).toEqual([
+      'Digitação repetida entre sistemas',
+      'Lentidão',
+      'Etiquetas ilegíveis',
+      'Rastreabilidade até o cliente',
+    ])
+    expect(suggestions.filter((item) => item === 'Digitação repetida entre sistemas')).toHaveLength(1)
+    expect(ranked.suggestions({ '2.2.incomoda': ['outra:  '] })[0]).toBe('Rastreabilidade até o cliente')
+    expect(ranked.suggestions({})[0]).toBe('Rastreabilidade até o cliente')
   })
 
   it('tem a seção multiunidade entre acesso e projeto', () => {

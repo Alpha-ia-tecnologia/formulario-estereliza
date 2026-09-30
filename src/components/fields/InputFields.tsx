@@ -37,13 +37,11 @@ interface BaseProps<F> {
   readonly onChange: Change
 }
 
-export function TextInput({ field, value, answers, labelledBy, onChange }: BaseProps<TextField> & { answers: Answers }) {
+export function TextInput({ field, value, labelledBy, onChange }: BaseProps<TextField>) {
   const [touched, setTouched] = useState(false)
   const text = asText(value)
   const invalidEmail = field.inputType === 'email' && touched && text !== '' && !EMAIL_PATTERN.test(text)
   const errorId = `${field.id}-erro`
-  const suggestion = field.suggest?.(answers)
-  const showSuggestion = suggestion && !text.includes(suggestion.value)
   const lines = text.split('\n').map((line) => line.trim())
 
   const handle = (next: string) => onChange(orUndefined(field.inputType === 'tel' ? formatPhoneBR(next) : next))
@@ -92,16 +90,6 @@ export function TextInput({ field, value, answers, labelledBy, onChange }: BaseP
         </p>
       )}
       {field.suggestions && <SuggestionChips items={field.suggestions} isActive={isChipActive} onPick={pickChip} />}
-      {showSuggestion && (
-        <button
-          type="button"
-          className="suggestion"
-          onClick={() => onChange(text.trim() === '' ? suggestion.value : `${text.trimEnd()}\n${suggestion.value}`)}
-        >
-          <SparkIcon width={16} height={16} />
-          <span>{suggestion.label}</span>
-        </button>
-      )}
     </div>
   )
 }
@@ -158,8 +146,9 @@ export function NumberGrid({ field, value, labelledBy, onChange }: BaseProps<Num
   )
 }
 
-export function RankedInputs({ field, value, labelledBy, onChange }: BaseProps<RankedField>) {
+export function RankedInputs({ field, value, answers, labelledBy, onChange }: BaseProps<RankedField> & { answers: Answers }) {
   const list = Array.isArray(value) ? value : []
+  const suggestions = typeof field.suggestions === 'function' ? field.suggestions(answers) : field.suggestions
   const slots = Array.from({ length: field.count }, (_, position) => list[position] ?? '')
   const commit = (next: readonly string[]) => onChange(next.some((item) => item.trim() !== '') ? next : undefined)
   const update = (index: number, text: string) => commit(slots.map((item, position) => (position === index ? text : item)))
@@ -196,9 +185,9 @@ export function RankedInputs({ field, value, labelledBy, onChange }: BaseProps<R
         </li>
       ))}
     </ol>
-      {field.suggestions && (
+      {suggestions && suggestions.length > 0 && (
         <SuggestionChips
-          items={field.suggestions}
+          items={suggestions}
           isActive={(item) => positionOf(item) >= 0}
           isDisabled={() => isFull}
           onPick={pickChip}

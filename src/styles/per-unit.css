@@ -161,6 +161,11 @@
   color: #fff;
 }
 
+/* A primeira coluna é fixa com fundo claro; no rodapé ela acompanha a faixa escura. */
+.number-table tfoot th:first-child {
+  background: var(--navy);
+}
+
 .number-table-wrap .number-grid__suffix {
   margin: 0;
   padding: 8px 12px;

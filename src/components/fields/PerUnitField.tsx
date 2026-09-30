@@ -29,7 +29,8 @@ function NumberTable({ field, units, answers, labelledBy, onChange }: NumberTabl
   const itemKeys = field.items.map((item) => item.key)
   const records = units.map((unit) => ({ unit, key: unitKey(field.id, unit), record: asRecord(answers[unitKey(field.id, unit)]) }))
   const hasTotals = Boolean(field.totalLabel)
-  const showFooter = hasTotals && units.length > 1
+  // Com mais de uma unidade, a última linha soma cada coluna: o total da empresa.
+  const showFooter = units.length > 1
 
   return (
     <div className="number-table-wrap">
@@ -79,7 +80,9 @@ function NumberTable({ field, units, answers, labelledBy, onChange }: NumberTabl
               {field.items.map((item) => (
                 <td key={item.key}>{records.reduce((total, { record }) => total + (Number(record[item.key]) || 0), 0)}</td>
               ))}
-              <td className="number-table__total">{records.reduce((total, { record }) => total + sumOf(record, itemKeys), 0)}</td>
+              {hasTotals && (
+                <td className="number-table__total">{records.reduce((total, { record }) => total + sumOf(record, itemKeys), 0)}</td>
+              )}
             </tr>
           </tfoot>
         )}

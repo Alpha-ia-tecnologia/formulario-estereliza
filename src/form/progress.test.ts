@@ -1,4 +1,4 @@
-import { MODULES, selectedUnits, unitKey } from './options'
+import { MODULES, SHARED_ITEMS, selectedUnits, unitKey } from './options'
 import {
   answerCompletion,
   blockCompletion,
@@ -37,14 +37,44 @@ describe('unidades atendidas', () => {
   })
 
   it('monta a chave da resposta de cada unidade', () => {
-    expect(unitKey('1.1', 'teresina')).toBe('1.1@teresina')
+    expect(unitKey('2.7', 'teresina')).toBe('2.7@teresina')
   })
 })
 
 describe('visibilidade condicional', () => {
   it('mostra "quais substituir" só quando a opção "Substituir alguns" está marcada', () => {
-    expect(isVisible(field('2.4.quais'), {})).toBe(false)
-    expect(isVisible(field('2.4.quais'), { '2.4': 'alguns' })).toBe(true)
+    expect(isVisible(field('2.3.quais'), {})).toBe(false)
+    expect(isVisible(field('2.3.quais'), { '2.3': 'todos' })).toBe(false)
+    expect(isVisible(field('2.3.quais'), { '2.3': 'alguns' })).toBe(true)
+  })
+
+  it('pergunta o que migrar e quanto histórico só quando o novo sistema substitui algum atual', () => {
+    for (const id of ['2.3.migrar', '2.3.historico']) {
+      expect(isVisible(field(id), {})).toBe(false)
+      expect(isVisible(field(id), { '2.3': 'integrar' })).toBe(false)
+      expect(isVisible(field(id), { '2.3': 'todos' })).toBe(true)
+      expect(isVisible(field(id), { '2.3': 'alguns' })).toBe(true)
+    }
+  })
+
+  it('pergunta o que é digitado em mais de um sistema só quando a digitação repetida incomoda', () => {
+    expect(isVisible(field('2.2.digitacao'), {})).toBe(false)
+    expect(isVisible(field('2.2.digitacao'), { '2.2.incomoda': ['lentidao'] })).toBe(false)
+    expect(isVisible(field('2.2.digitacao'), { '2.2.incomoda': ['lentidao', 'digitacao'] })).toBe(true)
+  })
+
+  it('pergunta os sistemas dos hospitais só quando a rastreabilidade vai até o paciente', () => {
+    expect(isVisible(field('3.1.sistemas'), { '3.1': 'item' })).toBe(false)
+    expect(isVisible(field('3.1.sistemas'), { '3.1': 'paciente' })).toBe(true)
+  })
+
+  it('mostra a faixa de orçamento que combina com o modelo de contratação', () => {
+    const visibleBudget = (model?: string) => visibleFields(block('projeto', '8.4'), model ? { '8.4': model } : {}).map((f) => f.id)
+    expect(visibleBudget()).toEqual(['8.4'])
+    expect(visibleBudget('fechado')).toEqual(['8.4', '8.4.projeto'])
+    expect(visibleBudget('outra:Por entrega')).toEqual(['8.4', '8.4.projeto'])
+    expect(visibleBudget('mensalidade')).toEqual(['8.4', '8.4.mensal'])
+    expect(visibleBudget('equipe')).toEqual(['8.4', '8.4.mensal'])
   })
 
   it('pergunta onde serão as novas unidades só quando há previsão', () => {
@@ -58,18 +88,19 @@ describe('visibilidade condicional', () => {
     expect(visibleFields(block('projeto', '8.3'), { '8.3': 'sim' }).map((f) => f.id)).toEqual(['8.3', '8.3.data', '8.3.motivo'])
   })
 
-  it('limita "quais substituir" aos sistemas marcados na 2.1 de qualquer unidade', () => {
-    const answers = { '2.1@sao-luis': ['financeiro'], '2.1@teresina': ['odu', 'financeiro'] }
-    expect(resolveOptions(field('2.4.quais'), answers).map((option) => option.value)).toEqual(['financeiro', 'odu'])
-  })
-
-  it('ignora sistemas de unidades desmarcadas', () => {
-    const answers = { 'ident.unidades': ['sao-luis'], '2.1@sao-luis': ['balcao'], '2.1@teresina': ['odu'] }
-    expect(resolveOptions(field('2.4.quais'), answers).map((option) => option.value)).toEqual(['balcao'])
+  it('limita "quais substituir" aos sistemas marcados na 2.1', () => {
+    const answers = { '2.1': ['odu', 'financeiro'] }
+    expect(resolveOptions(field('2.3.quais'), answers).map((option) => option.value)).toEqual(['financeiro', 'odu'])
   })
 
   it('mostra todos os sistemas quando a 2.1 está em branco', () => {
-    expect(resolveOptions(field('2.4.quais'), {})).toHaveLength(5)
+    expect(resolveOptions(field('2.3.quais'), {})).toHaveLength(5)
+    expect(resolveOptions(field('2.3.quais'), { '2.1': [] })).toHaveLength(5)
+  })
+
+  it('oferece como piloto só as unidades que o sistema vai atender', () => {
+    const labels = resolveOptions(field('8.2'), { 'ident.unidades': ['teresina', 'maracanau'] }).map((option) => option.label)
+    expect(labels).toEqual(['Sim: Teresina', 'Sim: Maracanaú', 'Não, todas juntas', 'Ainda não definido'])
   })
 })
 
@@ -78,9 +109,16 @@ describe('pruneHidden', () => {
     expect(pruneHidden({ '4.6': 'nao', '4.6.quais': 'modelo', '3.2': ['qr'] })).toEqual({ '4.6': 'nao', '3.2': ['qr'] })
   })
 
+  it('remove a faixa de orçamento do modelo que deixou de ser escolhido', () => {
+    expect(pruneHidden({ '8.4': 'mensalidade', '8.4.projeto': 'ate-100k', '8.4.mensal': '5-15k' })).toEqual({
+      '8.4': 'mensalidade',
+      '8.4.mensal': '5-15k',
+    })
+  })
+
   it('remove respostas de unidades desmarcadas', () => {
-    const answers = { 'ident.unidades': ['teresina'], '1.3@teresina': 'turnos', '1.3@sao-luis': '24h' }
-    expect(pruneHidden(answers)).toEqual({ 'ident.unidades': ['teresina'], '1.3@teresina': 'turnos' })
+    const answers = { 'ident.unidades': ['teresina'], '2.7@teresina': 'estavel', '2.7@sao-luis': 'offline' }
+    expect(pruneHidden(answers)).toEqual({ 'ident.unidades': ['teresina'], '2.7@teresina': 'estavel' })
   })
 
   it('não altera o objeto original', () => {
@@ -92,8 +130,8 @@ describe('pruneHidden', () => {
 
 describe('preenchimento', () => {
   it('considera texto com espaços como vazio', () => {
-    expect(fieldCompletion(field('2.2'), '   ')).toBe(0)
-    expect(fieldCompletion(field('2.2'), 'retrabalho')).toBe(1)
+    expect(fieldCompletion(field('1.6'), '   ')).toBe(0)
+    expect(fieldCompletion(field('1.6'), 'Teresina não tem ETO')).toBe(1)
   })
 
   it('considera múltipla escolha vazia como não respondida', () => {
@@ -102,8 +140,8 @@ describe('preenchimento', () => {
   })
 
   it('considera a grade numérica respondida com ao menos um número', () => {
-    expect(fieldCompletion(field('1.4'), { recepcao: '' })).toBe(0)
-    expect(fieldCompletion(field('1.4'), { recepcao: '3' })).toBe(1)
+    expect(fieldCompletion(field('1.4'), { total: '' })).toBe(0)
+    expect(fieldCompletion(field('1.4'), { total: '3' })).toBe(1)
   })
 
   it('considera a lista ordenada respondida com ao menos um item', () => {
@@ -119,7 +157,8 @@ describe('preenchimento', () => {
 
   it('aceita só os níveis da própria matriz', () => {
     expect(fieldCompletion(field('modulos'), { cadastros: 'comum' })).toBe(0)
-    expect(fieldCompletion(field('7.1'), { clientes: 'comum', kits: 'alta' })).toBeCloseTo(1 / 7)
+    expect(SHARED_ITEMS).toHaveLength(11)
+    expect(fieldCompletion(field('7.1'), { clientes: 'comum', kits: 'alta' })).toBeCloseTo(1 / 11)
   })
 
   it('conta documentos de forma proporcional', () => {
@@ -128,9 +167,9 @@ describe('preenchimento', () => {
 
   it('ignora respostas com tipo errado', () => {
     expect(fieldCompletion(field('3.2'), 'qr')).toBe(0)
-    expect(fieldCompletion(field('2.2'), ['x'])).toBe(0)
+    expect(fieldCompletion(field('1.6'), ['x'])).toBe(0)
     expect(fieldCompletion(field('1.4'), 'x')).toBe(0)
-    expect(fieldCompletion(field('2.2'), undefined)).toBe(0)
+    expect(fieldCompletion(field('1.6'), undefined)).toBe(0)
   })
 
   it('considera pessoa respondida com nome ou contato', () => {
@@ -139,21 +178,23 @@ describe('preenchimento', () => {
   })
 
   it('mede perguntas por unidade pela fração de unidades respondidas', () => {
-    expect(answerCompletion(field('1.1'), { '1.1@sao-luis': ['vapor'], '1.1@teresina': ['eto'] })).toBe(0.5)
-    expect(answerCompletion(field('1.1'), { 'ident.unidades': ['sao-luis', 'teresina'], '1.1@sao-luis': ['vapor'], '1.1@teresina': ['eto'] })).toBe(1)
+    const answers = { '2.7@sao-luis': 'estavel', '2.7@teresina': 'offline' }
+    expect(answerCompletion(field('2.7'), answers)).toBe(0.5)
+    expect(answerCompletion(field('2.7'), { ...answers, 'ident.unidades': ['sao-luis', 'teresina'] })).toBe(1)
   })
 
   it('ignora a chave sem unidade em perguntas por unidade', () => {
-    expect(answerCompletion(field('1.3'), { '1.3': 'turnos' })).toBe(0)
+    expect(answerCompletion(field('2.7'), { '2.7': 'estavel' })).toBe(0)
   })
 
   it('considera a pergunta respondida quando qualquer campo visível foi preenchido', () => {
-    expect(blockCompletion(block('sistemas', '2.3'), { '2.3.incomoda': 'lentidão' })).toBe(1)
-    expect(blockCompletion(block('sistemas', '2.3'), {})).toBe(0)
+    expect(blockCompletion(block('sistemas', '2.2'), { '2.2.incomoda': ['lentidao'] })).toBe(1)
+    expect(blockCompletion(block('sistemas', '2.2'), {})).toBe(0)
   })
 
   it('ignora campos ocultos no preenchimento da pergunta', () => {
     expect(blockCompletion(block('clientes', '4.6'), { '4.6.quais': 'modelo' })).toBe(0)
+    expect(blockCompletion(block('sistemas', '2.2'), { '2.2.digitacao': ['clientes'] })).toBe(0)
   })
 })
 
@@ -161,11 +202,10 @@ describe('progresso', () => {
   it('calcula o progresso de uma seção com perguntas por unidade', () => {
     const answers = {
       'ident.unidades': ['sao-luis', 'teresina'],
-      '1.1@sao-luis': ['eto'],
-      '1.1@teresina': ['vapor'],
-      '1.3@sao-luis': 'turnos',
+      '1.1': ['eto'],
+      '1.4@sao-luis': { total: '10' },
     }
-    expect(sectionProgress(getSection('operacao')!, answers)).toEqual({ done: 1.5, total: 5, ratio: 0.3 })
+    expect(sectionProgress(getSection('operacao')!, answers)).toEqual({ done: 1.5, total: 6, ratio: 0.25 })
   })
 
   it('calcula o progresso geral do formulário', () => {
@@ -175,7 +215,7 @@ describe('progresso', () => {
   })
 
   it('conta perguntas respondidas nas seções comuns', () => {
-    expect(sectionCounter(getSection('rastreabilidade')!, { '3.2': ['qr'] })).toEqual({ done: 1, total: 6, noun: 'respondidas' })
+    expect(sectionCounter(getSection('rastreabilidade')!, { '3.2': ['qr'] })).toEqual({ done: 1, total: 7, noun: 'respondidas' })
   })
 
   it('conta itens um a um nas seções de matriz ou documentos', () => {

@@ -1,8 +1,9 @@
 # Formulário de requisitos — Sistema Steriliza
 
 Versão digital do `Formulário de requisitos.docx`, reestruturada para um **sistema multiunidade**: a Steriliza responde
-um formulário só, que cobre todas as unidades (São Luís, Teresina, Maracanaú e Ananindeua). Onde a operação muda de
-uma unidade para outra, a pergunta vem unidade por unidade. No fim, a pessoa revisa e envia as respostas ao servidor
+um formulário só, que cobre todas as unidades (São Luís, Teresina, Maracanaú e Ananindeua). Como as unidades operam
+igual, cada pergunta é respondida uma vez para a empresa; só volume, equipe e internet vêm unidade por unidade, e
+exceções cabem na 1.6. No fim, a pessoa revisa e envia as respostas ao servidor
 do projeto, que as guarda no PostgreSQL — ou, sem servidor, baixa um pacote `.zip` para mandar por e-mail. O visual
 segue o site [steriliza.com.br](https://steriliza.com.br/): Montserrat, verde-água `#4ab39d`, azul-marinho `#33526b`,
 botões em pílula e o logo de 2025.
@@ -12,30 +13,35 @@ botões em pílula e o logo de 2025.
 | Etapa | Conteúdo |
 |---|---|
 | Identificação | Quem responde, onde atua e **quais unidades o sistema vai atender** (todas vêm marcadas) |
-| 1. Operação atual | Métodos, volume, horário, equipe e limpeza — **uma linha por unidade** |
-| 2. Sistemas e infraestrutura | Sistemas em uso, esterilizadores, equipamentos e internet por unidade; o resto vale para a empresa |
-| 3. Rastreabilidade e qualidade | Igual ao documento original |
+| 1. Operação atual | Métodos, horário e limpeza da empresa; **volume e equipe por unidade**; exceções à regra (1.6) |
+| 2. Sistemas e infraestrutura | Sistemas, o que funciona e o que incomoda, substituir ou integrar e o que migrar, esterilizadores, equipamentos, hospedagem; **internet por unidade** |
+| 3. Rastreabilidade e qualidade | Rastreabilidade (e sistemas dos hospitais, se chega ao paciente), identificação, indicadores, liberação de lote, não conformidades, auditorias, guarda dos registros |
 | 4. Clientes, logística e faturamento | Igual ao documento original, com opções de toque na 4.3 e 4.5 |
-| 5. Módulos e prioridades | Matriz de prioridade dos 13 módulos |
-| 6. Acesso e segurança | Perfis, assinatura, usuários simultâneos, LGPD |
-| 7. Operação multiunidade | **Nova**: o que é comum a todas × de cada unidade, quem vê tudo, clientes e material entre unidades, CNPJ, configuração por unidade, novas unidades |
-| 8. Projeto | Antiga seção 7 |
+| 5. Módulos e prioridades | Matriz de prioridade dos 13 módulos — é ela que define a primeira entrega |
+| 6. Acesso e segurança | Perfis, assinatura, usuários ao mesmo tempo (faixas), LGPD |
+| 7. Operação multiunidade | **Nova**: o que é comum a todas × de cada unidade (cadastros e configurações), usuários em mais de uma unidade, quem vê tudo, clientes e material entre unidades, CNPJ, novas unidades |
+| 8. Projeto | Problemas mais urgentes, unidade piloto, prazo, modelo e faixa de orçamento, quem decide, sucesso em 6 meses |
 | 9. Documentos para anexar | Antiga seção 8 |
 
 ## O que muda em relação ao .docx
 
 - **Um formulário para a empresa**, com salvamento automático no navegador: dá para parar e continuar depois.
-- **Perguntas por unidade** só onde a operação muda, com o atalho "Repetir a resposta nas demais unidades" e uma tabela
-  com totais por unidade e da empresa para volume e equipe. Desmarcar uma unidade na identificação tira as linhas dela.
-- **Perguntas condicionais**: "Substituir alguns (quais?)" só aparece quando marcado e lista os sistemas usados em
-  alguma unidade; "Outra" na 4.4, "Quais?" na 4.6, detalhes na 7.3, 7.4 e 7.7, data e motivo na 8.3.
+- **Por unidade, só o que é medida do local**: volume (1.2) e equipe (1.4) em tabela com a linha "Todas" somando a
+  empresa, e internet (2.7) com o atalho "Repetir a resposta nas demais unidades". Desmarcar uma unidade na
+  identificação tira as linhas dela (e a tira das opções de unidade piloto).
+- **Perguntas condicionais**: o que é digitado em dobro (2.2) só se "Digitação repetida" for marcada; "quais
+  substituir", "o que migrar" e "quanto histórico" (2.3) conforme a estratégia; sistemas dos hospitais (3.1) quando a
+  rastreabilidade chega ao paciente; faixa de orçamento por projeto ou por mês conforme o modelo (8.4); detalhes na
+  4.6, 7.4, 7.5 e 7.7; data e motivo na 8.3.
+- **Escolhas no lugar de texto livre** onde as respostas se repetem (2.2, 3.4, 3.5, 3.6, 3.7, 6.3, 8.2, 8.4), para
+  comparar e consultar no banco; texto livre fica para o que é realmente aberto.
 - **Sugestões de resposta**: as perguntas abertas têm chips com respostas comuns — tocar preenche, tocar de novo desfaz;
   em texto de várias linhas cada chip vira uma linha, e na lista de problemas (8.1) ocupa a próxima posição vazia.
 - **Opção "Outra"**: todo campo de escolha em que a lista pode não bastar tem "Outra/Outro" com um campo "Qual?";
   o texto fica gravado junto da escolha, como `outra:<texto>`.
 - **Transições**: a etapa antiga sai e a nova entra no sentido da navegação (View Transitions API, com fallback);
   marcar opções, concluir etapas e abrir linhas por unidade têm micro-animações; tudo respeita "reduzir movimento".
-- **Atalhos**: a 8.2 sugere os módulos marcados como prioridade alta; a 8.5 tem "Sou eu"; o telefone ganha máscara.
+- **Atalhos**: a 8.1 sugere primeiro o que foi marcado como incômodo na 2.2; a 8.5 tem "Sou eu"; o telefone ganha máscara.
 - **Matrizes** em controle segmentado (prioridades na seção 5, comum/por unidade na 7.1), com contagem por nível.
 - **Anexos (seção 9)** direto no formulário (arrastar e soltar), ou "Envio depois" / "Não temos".
 - **Revisão** com filtro das perguntas em branco e salto direto para qualquer pergunta.
@@ -47,8 +53,8 @@ botões em pílula e o logo de 2025.
 - **Envio ao servidor**: quando o formulário é servido pelo `npm run server` (ou `VITE_API_URL` aponta para ele), o
   painel da revisão ganha "Enviar respostas" e devolve um número de protocolo; cada envio vira uma linha no PostgreSQL.
 - **Exportação**: pacote `.zip` com `respostas.json`, `resumo.md` e `anexos/`; também imprimir/salvar PDF e `.json` avulso.
-- **Importação**: "Continuar de um arquivo" reabre um pacote em outro computador (formato v2; pacotes da versão por
-  unidade são recusados com aviso).
+- **Importação**: "Continuar de um arquivo" reabre um pacote em outro computador (formato v3; pacotes de versões
+  anteriores, que usam os mesmos números com outro significado, são recusados com aviso).
 
 ## Como usar
 
@@ -81,14 +87,15 @@ recalculados), sem confiar no que veio do navegador.
 Cada linha da tabela `respostas` guarda: `recebido_em` (timestamptz), `respondente`, `cargo`, `unidades` (jsonb),
 `preenchido` (%), `anexos`, `sintese` (a abertura), `dados` (o `respostas.json`, em **jsonb**), `resumo` (o `resumo.md`)
 e `pacote` (o `.zip` em bytea, reimportável pelo "Continuar de um arquivo"). Como `dados` é jsonb, dá para analisar
-direto em SQL — as chaves são os ids das perguntas, e as por unidade levam o sufixo `@unidade`:
+direto em SQL — as chaves são os ids das perguntas, e as por unidade levam o sufixo `@unidade`. Os ids valem para
+uma versão do formulário (`dados->>'versao'`); filtre por ela ao comparar respostas de épocas diferentes:
 
 ```sql
 -- Quem respondeu, modelo de contratação (8.4) e prazo (8.3.data)
 SELECT id, recebido_em, respondente,
        dados->'respostas'->>'8.4'      AS contratacao,
        dados->'respostas'->>'8.3.data' AS prazo
-FROM respostas ORDER BY id DESC;
+FROM respostas WHERE dados->>'versao' = '3' ORDER BY id DESC;
 
 -- Pontos de atenção da síntese, um por linha
 SELECT r.id, p->>'tone' AS tipo, p->>'text' AS ponto
@@ -170,8 +177,9 @@ server/
 
 Para mudar uma pergunta, altere `src/form/schema.ts`: a tela, o progresso, a revisão, a exportação e a validação da
 importação são derivados dele. Para pedir uma resposta por unidade, marque o campo com `perUnit: true` — ela fica
-gravada em `<id>@<unidade>` (ex.: `1.3@teresina`). Para oferecer "Outra", use `other: { label, prompt }`; para chips
-de sugestão, `suggestions: [...]`. Ao mudar ids ou opções já usados, aumente `FORM_VERSION` em `sanitize.ts`.
+gravada em `<id>@<unidade>` (ex.: `2.7@teresina`). Para oferecer "Outra", use `other: { label, prompt }`; para chips
+de sugestão, `suggestions: [...]`. Ao mudar ids ou opções já usados, aumente `FORM_VERSION` em `sanitize.ts` e a versão
+do rascunho em `storage.ts` — um id reaproveitado com outro significado leria respostas antigas no lugar errado.
 
 ## Testes
 

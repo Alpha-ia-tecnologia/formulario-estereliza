@@ -26,6 +26,6 @@ describe('SynthesisPanel', () => {
 
     const metrics = screen.getByRole('list', { name: 'Números' })
     expect(metrics).toHaveTextContent('1 Unidade')
-    expect(metrics).toHaveTextContent('800 Itens ou kits por mês')
+    expect(metrics).toHaveTextContent('800 Kits e itens por mês')
   })
 })

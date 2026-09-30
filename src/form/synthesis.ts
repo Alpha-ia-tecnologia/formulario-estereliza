@@ -1,7 +1,7 @@
 import { type AttentionPoint, attentionPoints } from './attention'
 import { formatDateBR } from './format'
-import { MODULES, PRIORITY_LEVELS, SHARING_LEVELS, SHARED_ITEMS, selectedUnits } from './options'
-import { overallProgress } from './progress'
+import { MODULES, PRIORITY_LEVELS, SHARING_LEVELS, SHARED_ITEMS, isUnitId, selectedUnits } from './options'
+import { overallProgress, pruneHidden } from './progress'
 import {
   choiceText,
   cityOf,
@@ -64,7 +64,7 @@ function metrics(answers: Answers): readonly SynthesisMetric[] {
   const units = selectedUnits(answers)
   const sums: ReadonlyArray<[string, ReturnType<typeof sumPerUnit>]> = [
     ['Funcionários', sumPerUnit(answers, '1.4')],
-    ['Itens ou kits por mês', sumPerUnit(answers, '1.2', 'itens')],
+    ['Kits e itens por mês', sumPerUnit(answers, '1.2', 'itens')],
     ['Ciclos por mês', sumPerUnit(answers, '1.2', 'ciclos')],
     ['Clientes ativos', sumPerUnit(answers, '1.2', 'clientes')],
   ]
@@ -76,22 +76,22 @@ function metrics(answers: Answers): readonly SynthesisMetric[] {
     })
   const priorities = recordOf(answers, 'modulos')
   const high = Object.values(priorities).filter((level) => level === 'alta').length
-  const users = textOf(answers, '6.4')
+  const users = answers['6.3'] === 'nao-sei' ? '' : choiceText(answers, '6.3')
   return [
     { label: 'Preenchido', value: `${Math.round(overallProgress(answers).ratio * 100)}%` },
     { label: units.length === 1 ? 'Unidade' : 'Unidades', value: String(units.length) },
     ...fromUnits,
     ...(Object.keys(priorities).length > 0 ? [{ label: 'Módulos em prioridade alta', value: String(high), detail: `de ${MODULES.length}` }] : []),
-    ...(users ? [{ label: 'Usuários simultâneos', value: numberFormat.format(Number(users)) }] : []),
+    ...(users ? [{ label: 'Usuários simultâneos', value: users }] : []),
   ]
 }
 
 function strategy(answers: Answers): Line {
-  switch (answers['2.4']) {
+  switch (answers['2.3']) {
     case 'todos':
       return 'Estratégia: substituir todos os sistemas atuais'
     case 'alguns': {
-      const which = choiceText(answers, '2.4.quais')
+      const which = choiceText(answers, '2.3.quais')
       return `Estratégia: substituir alguns sistemas${which ? ` (${which})` : ''}`
     }
     case 'integrar':
@@ -140,43 +140,59 @@ function crossUnit(answers: Answers, id: string, detailId: string, text: string)
   return detail ? `${text}: ${detail}` : text
 }
 
+function release(answers: Answers): Line {
+  const after = choiceText(answers, '3.4.apos')
+  return line('Liberação de lote', [choiceText(answers, '3.4.quem'), after ? `após ${after.toLowerCase()}` : ''].filter(Boolean).join(', '))
+}
+
+function pilot(answers: Answers): Line {
+  const value = answers['8.2']
+  if (value === 'todas') return 'Implantação: todas as unidades juntas'
+  if (value === 'a-definir') return 'Implantação: unidade piloto ainda não definida'
+  // Uma unidade desmarcada depois de escolhida como piloto não vale mais.
+  return isUnitId(value) && selectedUnits(answers).includes(value) ? `Implantação: começa por ${cityOf(value)}` : null
+}
+
 const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answers) => readonly Line[] }> = [
   {
     id: 'operacao',
     title: 'Operação',
     build: (a) => [
-      line('Métodos', groupByAnswer(a, '1.1')),
-      line('Horário', groupByAnswer(a, '1.3')),
-      line('Limpeza feita pela Steriliza', groupByAnswer(a, '1.5')),
+      line('Métodos', choiceText(a, '1.1')),
+      line('Horário', choiceText(a, '1.3')),
+      line('Limpeza feita pela Steriliza', choiceText(a, '1.5')),
       line('Equipe por unidade', totalsByUnit(a, '1.4')),
+      line('Diferenças entre unidades', textLines(a, '1.6')),
     ],
   },
   {
     id: 'sistemas',
     title: 'Sistemas e infraestrutura',
     build: (a) => [
-      line('Sistemas em uso', groupByAnswer(a, '2.1')),
+      line('Sistemas em uso', choiceText(a, '2.1')),
+      line('Funciona bem hoje', choiceText(a, '2.2.bem')),
+      line('Mais incomoda hoje', choiceText(a, '2.2.incomoda')),
+      line('Digitado em mais de um sistema', choiceText(a, '2.2.digitacao')),
       strategy(a),
-      line('Outros sistemas', withDetail(choiceText(a, '2.5'), textOf(a, '2.5.nomes'))),
-      line('Digitado em mais de um sistema', textLines(a, '2.2')),
-      line('Funciona bem hoje', textLines(a, '2.3.bem')),
-      line('Mais incomoda hoje', textLines(a, '2.3.incomoda')),
-      line('Exportação de ciclos', groupByAnswer(a, '2.6')),
-      line('Equipamentos', groupByAnswer(a, '2.7')),
-      line('Internet', groupByAnswer(a, '2.8')),
-      line('Hospedagem preferida', choiceText(a, '2.9')),
+      line('Migrar dos sistemas atuais', withDetail(choiceText(a, '2.3.migrar'), choiceText(a, '2.3.historico'))),
+      line('Outros sistemas', withDetail(choiceText(a, '2.4'), textOf(a, '2.4.nomes'))),
+      line('Exportação de ciclos', choiceText(a, '2.5')),
+      line('Equipamentos', choiceText(a, '2.6')),
+      line('Internet', groupByAnswer(a, '2.7')),
+      line('Hospedagem preferida', choiceText(a, '2.8')),
     ],
   },
   {
     id: 'rastreabilidade',
     title: 'Rastreabilidade e qualidade',
     build: (a) => [
-      line('Rastreabilidade até', choiceText(a, '3.1')),
+      line('Rastreabilidade até', withDetail(choiceText(a, '3.1'), textLines(a, '3.1.sistemas'))),
       line('Identificação hoje', choiceText(a, '3.2')),
       line('Indicadores', choiceText(a, '3.3')),
-      line('Liberação de lote', textLines(a, '3.4')),
-      line('Não conformidades e recolhimentos', textLines(a, '3.5')),
-      line('Mais pedidos em auditorias', textLines(a, '3.6')),
+      release(a),
+      line('Não conformidades e recolhimentos', choiceText(a, '3.5')),
+      line('Mais pedidos em auditorias', choiceText(a, '3.6')),
+      line('Guarda dos registros', choiceText(a, '3.7')),
     ],
   },
   {
@@ -196,7 +212,6 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
     title: 'Prioridades',
     build: (a) => [
       ...matrixLines(a, 'modulos', MODULES, PRIORITY_LEVELS, (label) => (label === 'Não precisa' ? 'Não precisa' : `Prioridade ${label.toLowerCase()}`)),
-      line('Primeira entrega', textLines(a, '8.2')),
     ],
   },
   {
@@ -204,11 +219,10 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
     title: 'Acesso e segurança',
     build: (a) => [
       line('Perfis', choiceText(a, '6.1')),
-      when(a['6.2'] === 'sim', 'Há usuários que atuam em mais de uma unidade'),
-      when(a['6.2'] === 'nao', 'Cada usuário atua em uma unidade só'),
-      line('Registro de quem executou', choiceText(a, '6.3')),
-      line('Dados pessoais tratados', choiceText(a, '6.5')),
-      line('Responsável pela LGPD', textOf(a, '6.5.responsavel')),
+      line('Registro de quem executou', choiceText(a, '6.2')),
+      line('Usuários ao mesmo tempo no pico', choiceText(a, '6.3')),
+      line('Dados pessoais tratados', choiceText(a, '6.4')),
+      line('Responsável pela LGPD', textOf(a, '6.4.responsavel')),
     ],
   },
   {
@@ -216,11 +230,12 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
     title: 'Multiunidade',
     build: (a) => [
       ...matrixLines(a, '7.1', SHARED_ITEMS, SHARING_LEVELS, (label) => label),
-      line('Veem todas as unidades', choiceText(a, '7.2')),
-      crossUnit(a, '7.3', '7.3.como', 'Clientes atendidos por mais de uma unidade'),
-      crossUnit(a, '7.4', '7.4.como', 'Material de uma unidade é processado em outra'),
-      line('CNPJ próprio por unidade', choiceText(a, '7.5')),
-      line('Pode variar por unidade', choiceText(a, '7.6')),
+      when(a['7.2'] === 'sim', 'Há usuários que atuam em mais de uma unidade'),
+      when(a['7.2'] === 'nao', 'Cada usuário atua em uma unidade só'),
+      line('Veem todas as unidades', choiceText(a, '7.3')),
+      crossUnit(a, '7.4', '7.4.como', 'Clientes atendidos por mais de uma unidade'),
+      crossUnit(a, '7.5', '7.5.como', 'Material de uma unidade é processado em outra'),
+      line('CNPJ próprio por unidade', choiceText(a, '7.6')),
       line('Novas unidades', withDetail(choiceText(a, '7.7'), textOf(a, '7.7.onde'))),
     ],
   },
@@ -229,10 +244,12 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
     title: 'Projeto',
     build: (a) => [
       line('Problemas mais urgentes', ranked(a)),
+      pilot(a),
       a['8.3'] === 'sim'
         ? line('Prazo', withDetail(textOf(a, '8.3.data') ? formatDateBR(textOf(a, '8.3.data')) : '', textOf(a, '8.3.motivo')) || 'com data a definir')
         : when(a['8.3'] === 'nao', 'Sem prazo definido'),
-      line('Modelo de contratação', withDetail(choiceText(a, '8.4'), textOf(a, '8.4.faixa'))),
+      // Só uma das faixas está visível, conforme o modelo; a síntese recebe só respostas visíveis.
+      line('Modelo de contratação', withDetail(choiceText(a, '8.4'), choiceText(a, '8.4.projeto') || choiceText(a, '8.4.mensal'))),
       line('Quem decide', person(a, '8.5.decisor')),
       line('Ponto focal', person(a, '8.5.focal')),
       line('Sucesso em 6 meses', textLines(a, '8.6')),
@@ -241,18 +258,21 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
 ]
 
 /**
- * Todo texto sai em linha única: respostas livres (sobretudo de pacotes
- * importados) podem trazer quebras de linha que desmontariam o resumo.md.
+ * Usa só as respostas visíveis: o que ficou em campo oculto (ex.: a faixa de
+ * orçamento de outro modelo) não entra. Todo texto sai em linha única — respostas
+ * livres, sobretudo de pacotes importados, podem trazer quebras de linha que
+ * desmontariam o resumo.md.
  */
 export function synthesize(answers: Answers, today: Date = new Date()): Synthesis {
+  const visible = pruneHidden(answers)
   return {
-    headline: oneLine(headline(answers)),
-    metrics: metrics(answers),
-    attention: attentionPoints(answers, today).map((point) => ({ ...point, text: oneLine(point.text) })),
+    headline: oneLine(headline(visible)),
+    metrics: metrics(visible),
+    attention: attentionPoints(visible, today).map((point) => ({ ...point, text: oneLine(point.text) })),
     topics: TOPICS.map((topic) => ({
       id: topic.id,
       title: topic.title,
-      lines: topic.build(answers).filter((item): item is string => item !== null).map(oneLine),
+      lines: topic.build(visible).filter((item): item is string => item !== null).map(oneLine),
     })).filter((topic) => topic.lines.length > 0),
   }
 }

@@ -22,13 +22,13 @@ export function FieldInput({ field, value, answers, labelledBy, onChange }: Fiel
     case 'multi':
       return <ChoiceField field={field} answers={answers} {...common} />
     case 'text':
-      return <TextInput field={field} answers={answers} {...common} />
+      return <TextInput field={field} {...common} />
     case 'number':
       return <NumberInput field={field} {...common} />
     case 'numberGrid':
       return <NumberGrid field={field} {...common} />
     case 'ranked':
-      return <RankedInputs field={field} {...common} />
+      return <RankedInputs field={field} answers={answers} {...common} />
     case 'person':
       return <PersonInputs field={field} answers={answers} {...common} />
     case 'matrix':

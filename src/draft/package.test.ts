@@ -4,7 +4,7 @@ import type { Attachment } from './attachments'
 import { JSON_NAME, MARKDOWN_NAME, buildExportJson, buildPackage, downloadBlob, readPackage, reconcileDocuments } from './package'
 
 const NOW = new Date('2026-09-28T12:00:00')
-const HEADER = { formulario: 'steriliza-requisitos', versao: 2 }
+const HEADER = { formulario: 'steriliza-requisitos', versao: 3 }
 
 const attachment = (docKey: string, name: string, content: string): Attachment => ({
   id: `${docKey}-${name}-${content}`,
@@ -42,8 +42,9 @@ describe('buildExportJson', () => {
       answers: {
         'ident.nome': 'Ana',
         'ident.unidades': ['sao-luis', 'teresina'],
-        '1.3@sao-luis': 'turnos',
-        '1.3@maracanau': '24h',
+        '1.3': 'turnos',
+        '2.7@sao-luis': 'offline',
+        '2.7@maracanau': 'estavel',
         '4.6': 'nao',
         '4.6.quais': 'oculto',
       },
@@ -52,18 +53,25 @@ describe('buildExportJson', () => {
     })
     expect(json).toMatchObject({
       formulario: 'steriliza-requisitos',
-      versao: 2,
+      versao: 3,
       unidades: ['São Luís — MA', 'Teresina — PI'],
       anexos: [{ documento: 'formularios', nome: 'planilha.xlsx', bytes: 3 }],
     })
-    expect(json.respostas).toEqual({ 'ident.nome': 'Ana', 'ident.unidades': ['sao-luis', 'teresina'], '1.3@sao-luis': 'turnos', '4.6': 'nao' })
-    expect(json.resumo.find((row) => row.numero === '1.3')?.resposta).toBe('São Luís: Turnos')
+    expect(json.respostas).toEqual({
+      'ident.nome': 'Ana',
+      'ident.unidades': ['sao-luis', 'teresina'],
+      '1.3': 'turnos',
+      '2.7@sao-luis': 'offline',
+      '4.6': 'nao',
+    })
+    expect(json.resumo.find((row) => row.numero === '1.3')?.resposta).toBe('Turnos')
+    expect(json.resumo.find((row) => row.numero === '2.7')?.resposta).toBe('São Luís: Precisa funcionar sem internet')
     expect(json.resumo.find((row) => row.numero === '3.2')?.resposta).toBeNull()
   })
 
   it('inclui a síntese estruturada, calculada só com as respostas exportadas', () => {
     const json = buildExportJson({
-      answers: { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.8@teresina': 'offline', '2.8@sao-luis': 'instavel' },
+      answers: { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.7@teresina': 'offline', '2.7@sao-luis': 'instavel' },
       attachments: [],
       now: NOW,
     })
@@ -91,12 +99,17 @@ describe('pacote .zip', () => {
 
   it('importa de volta um pacote exportado, com anexos', async () => {
     const built = await buildPackage({
-      answers: { 'ident.nome': 'Ana', '1.1@teresina': ['vapor'], documentos: { equipamentos: 'anexado' } },
+      answers: { 'ident.nome': 'Ana', '1.1': ['vapor'], '2.7@teresina': 'instavel', documentos: { equipamentos: 'anexado' } },
       attachments: [attachment('equipamentos', 'lista.csv', 'autoclave')],
       now: NOW,
     })
     const imported = await readPackage(asFile(built.blob, built.fileName))
-    expect(imported.answers).toEqual({ 'ident.nome': 'Ana', '1.1@teresina': ['vapor'], documentos: { equipamentos: 'anexado' } })
+    expect(imported.answers).toEqual({
+      'ident.nome': 'Ana',
+      '1.1': ['vapor'],
+      '2.7@teresina': 'instavel',
+      documentos: { equipamentos: 'anexado' },
+    })
     expect(imported.files).toHaveLength(1)
     expect(imported.files[0]).toMatchObject({ docKey: 'equipamentos', name: 'lista.csv' })
     expect(imported.files[0]?.blob.type).toBe('text/csv')
@@ -104,8 +117,15 @@ describe('pacote .zip', () => {
   })
 
   it('importa um respostas.json avulso', async () => {
-    const json = JSON.stringify({ ...HEADER, respostas: { '2.9': 'nuvem' } })
-    expect(await readPackage(asFile(new Blob([json]), 'respostas.json'))).toEqual({ answers: { '2.9': 'nuvem' }, files: [] })
+    const json = JSON.stringify({ ...HEADER, respostas: { '2.8': 'nuvem' } })
+    expect(await readPackage(asFile(new Blob([json]), 'respostas.json'))).toEqual({ answers: { '2.8': 'nuvem' }, files: [] })
+  })
+
+  it('recusa um respostas.json da versão 2', async () => {
+    const json = JSON.stringify({ ...HEADER, versao: 2, respostas: { '2.8@teresina': 'offline' } })
+    await expect(readPackage(asFile(new Blob([json]), 'respostas.json'))).rejects.toThrow(
+      'Este arquivo é de uma versão anterior do formulário e não pode ser importado.',
+    )
   })
 
   it('ignora arquivos fora da pasta de anexos ou de documentos desconhecidos', async () => {

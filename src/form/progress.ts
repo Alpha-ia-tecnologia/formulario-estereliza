@@ -25,9 +25,8 @@ export function visibleFields(block: Block, answers: Answers): readonly Field[] 
 }
 
 export function resolveOptions(field: Field, answers: Answers): readonly Option[] {
-  if (field.kind === 'multi' && field.filterOptions) return field.filterOptions(field.options, answers)
-  if (field.kind === 'single' || field.kind === 'multi') return field.options
-  return []
+  if (field.kind !== 'single' && field.kind !== 'multi') return []
+  return field.filterOptions ? field.filterOptions(field.options, answers) : field.options
 }
 
 function ratioOfValidItems(items: readonly { key: string }[], value: AnswerValue | undefined, allowed: readonly string[]): number {

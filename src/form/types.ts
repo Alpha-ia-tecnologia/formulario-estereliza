@@ -67,6 +67,8 @@ export interface SingleField extends FieldBase {
   /** "scale" desenha as opções como uma escala progressiva. */
   readonly layout?: 'chips' | 'scale'
   readonly other?: OtherOption | true
+  /** Restringe as opções exibidas com base em outras respostas. */
+  readonly filterOptions?: (options: readonly Option[], answers: Answers) => readonly Option[]
 }
 
 export interface MultiField extends FieldBase {
@@ -77,11 +79,6 @@ export interface MultiField extends FieldBase {
   readonly filterOptions?: (options: readonly Option[], answers: Answers) => readonly Option[]
 }
 
-export interface Suggestion {
-  readonly label: string
-  readonly value: string
-}
-
 export interface TextField extends FieldBase {
   readonly kind: 'text'
   readonly inputType?: 'text' | 'email' | 'tel' | 'date'
@@ -89,8 +86,6 @@ export interface TextField extends FieldBase {
   readonly placeholder?: string
   readonly autoComplete?: string
   readonly required?: boolean
-  /** Oferece um atalho de preenchimento baseado em respostas anteriores. */
-  readonly suggest?: (answers: Answers) => Suggestion | null
   /** Respostas comuns, em chips tocáveis, para quem prefere não digitar. */
   readonly suggestions?: readonly string[]
 }
@@ -113,8 +108,8 @@ export interface RankedField extends FieldBase {
   readonly kind: 'ranked'
   readonly count: number
   readonly placeholders?: readonly string[]
-  /** Chips que preenchem a próxima posição vazia. */
-  readonly suggestions?: readonly string[]
+  /** Chips que preenchem a próxima posição vazia; podem depender de outras respostas. */
+  readonly suggestions?: readonly string[] | ((answers: Answers) => readonly string[])
 }
 
 export interface MatrixWarning {

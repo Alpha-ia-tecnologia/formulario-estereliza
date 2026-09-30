@@ -5,9 +5,12 @@ import { SECTIONS } from '../form/schema'
 import type { Answers } from '../form/types'
 import { isoDay } from '../lib/files'
 
-/** Rascunho único do formulário, que cobre todas as unidades. */
+/**
+ * Rascunho único do formulário, que cobre todas as unidades. A versão acompanha
+ * FORM_VERSION: rascunhos de outra versão usam ids com outro significado e são descartados.
+ */
 export interface Draft {
-  readonly version: 2
+  readonly version: 3
   readonly answers: Answers
   readonly createdAt: string
   readonly updatedAt: string
@@ -16,7 +19,7 @@ export interface Draft {
 
 export type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
-export const DRAFT_KEY = 'steriliza-requisitos:v2'
+export const DRAFT_KEY = 'steriliza-requisitos:v3'
 const FIRST_SECTION_ID = SECTIONS[0]?.id ?? ''
 
 const defaultStorage = (): DraftStorage => window.localStorage
@@ -24,7 +27,7 @@ const defaultStorage = (): DraftStorage => window.localStorage
 export function createDraft(now: Date = new Date()): Draft {
   const timestamp = now.toISOString()
   return {
-    version: 2,
+    version: 3,
     answers: { 'ident.data': isoDay(now), [UNITS_FIELD_ID]: [...UNIT_IDS] },
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -39,10 +42,10 @@ export function loadDraft(storage: DraftStorage = defaultStorage()): Draft | nul
     const data: unknown = JSON.parse(raw)
     if (!isRecord(data)) return null
     const value = data as Record<string, unknown>
-    if (value.version !== 2) return null
+    if (value.version !== 3) return null
     const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString()
     return {
-      version: 2,
+      version: 3,
       answers: sanitizeAnswers(value.answers),
       createdAt,
       updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : createdAt,

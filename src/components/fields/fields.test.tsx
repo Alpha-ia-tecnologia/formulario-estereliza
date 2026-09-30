@@ -33,50 +33,136 @@ const rowOf = (label: string) => screen.getByText(label).closest('li')!
 const fileInputOf = (row: HTMLElement) => row.querySelector<HTMLInputElement>('input[type="file"]')!
 
 describe('perguntas por unidade', () => {
-  it('guarda a resposta de cada unidade separadamente', async () => {
-    const user = openSection('operacao')
-    const hours = questionOf(/Horário de funcionamento/)
-    await user.click(within(within(hours).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Turnos' }))
-    await user.click(within(within(hours).getByRole('radiogroup', { name: /^Teresina/ })).getByRole('radio', { name: '24 horas' }))
+  it('guarda a internet de cada unidade separadamente', async () => {
+    const user = openSection('sistemas')
+    const internet = questionOf(/Internet em cada unidade/)
+    await user.click(within(within(internet).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Instável' }))
+    await user.click(
+      within(within(internet).getByRole('radiogroup', { name: /^Teresina/ })).getByRole('radio', { name: 'Precisa funcionar sem internet' }),
+    )
 
     await waitFor(() => {
-      expect(savedAnswers()['1.3@sao-luis']).toBe('turnos')
-      expect(savedAnswers()['1.3@teresina']).toBe('24h')
+      expect(savedAnswers()['2.7@sao-luis']).toBe('instavel')
+      expect(savedAnswers()['2.7@teresina']).toBe('offline')
     })
-    expect(within(within(hours).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Turnos' })).toBeChecked()
+    expect(within(within(internet).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Instável' })).toBeChecked()
   })
 
   it('repete a resposta da primeira unidade nas demais', async () => {
-    const user = openSection('operacao', { '1.1@sao-luis': ['eto', 'vapor'] })
-    const methods = questionOf(/Métodos oferecidos/)
-    await user.click(within(methods).getByRole('button', { name: /Repetir a resposta de São Luís/ }))
+    const user = openSection('sistemas', { '2.7@sao-luis': 'offline' })
+    const internet = questionOf(/Internet em cada unidade/)
+    await user.click(within(internet).getByRole('button', { name: 'Repetir a resposta de São Luís nas demais unidades' }))
 
-    await waitFor(() => expect(savedAnswers()['1.1@ananindeua']).toEqual(['eto', 'vapor']))
-    expect(savedAnswers()['1.1@teresina']).toEqual(['eto', 'vapor'])
+    await waitFor(() => expect(savedAnswers()['2.7@ananindeua']).toBe('offline'))
+    expect(savedAnswers()['2.7@teresina']).toBe('offline')
+    expect(savedAnswers()['2.7@maracanau']).toBe('offline')
+    expect(within(internet).queryByRole('button', { name: /Repetir/ })).not.toBeInTheDocument()
+  })
+
+  it('pergunta só uma vez o que vale para a empresa toda', () => {
+    openSection('operacao')
+    const methods = questionOf(/Métodos de esterilização oferecidos/)
+    expect(within(methods).getAllByRole('checkbox', { name: 'Vapor' })).toHaveLength(1)
     expect(within(methods).queryByRole('button', { name: /Repetir/ })).not.toBeInTheDocument()
   })
 
-  it('soma os funcionários por unidade e no total da empresa', async () => {
+  it('guarda o total de funcionários de cada unidade, só com dígitos', async () => {
     const user = openSection('operacao')
-    await user.type(screen.getByRole('textbox', { name: 'Recepção — São Luís' }), '3')
-    await user.type(screen.getByRole('textbox', { name: 'Preparo — São Luís' }), '1a2')
-    await user.type(screen.getByRole('textbox', { name: 'Preparo — Teresina' }), '5')
+    await user.type(screen.getByRole('textbox', { name: 'Funcionários — São Luís' }), '1a2')
+    await user.type(screen.getByRole('textbox', { name: 'Funcionários — Teresina' }), '5')
 
-    expect(screen.getByRole('textbox', { name: 'Preparo — São Luís' })).toHaveValue('12')
-    const table = within(questionOf(/Funcionários por área/)).getByRole('table')
-    const rows = within(table).getAllByRole('row')
-    expect(within(rows[1]!).getAllByRole('cell').at(-1)).toHaveTextContent('15')
-    expect(within(rows.at(-1)!).getAllByRole('cell').at(-1)).toHaveTextContent('20')
-    await waitFor(() => expect(savedAnswers()['1.4@sao-luis']).toEqual({ recepcao: '3', preparo: '12' }))
+    expect(screen.getByRole('textbox', { name: 'Funcionários — São Luís' })).toHaveValue('12')
+    const table = within(questionOf(/Número de funcionários de cada unidade/)).getByRole('table')
+    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Unidade', 'Funcionários'])
+    expect(within(table).getByRole('rowheader', { name: 'Todas' }).closest('tr')).toHaveTextContent('Todas17')
+    await waitFor(() => {
+      expect(savedAnswers()['1.4@sao-luis']).toEqual({ total: '12' })
+      expect(savedAnswers()['1.4@teresina']).toEqual({ total: '5' })
+    })
   })
 
-  it('oferece em "quais substituir" só os sistemas usados em alguma unidade', async () => {
-    const user = openSection('sistemas', { '2.1@sao-luis': ['financeiro'], '2.1@maracanau': ['odu'] })
+  it('guarda o volume de kits e itens de cada unidade', async () => {
+    const user = openSection('operacao')
+    await user.type(screen.getByRole('textbox', { name: 'Kits e itens — Maracanaú' }), '800')
+    await waitFor(() => expect(savedAnswers()['1.2@maracanau']).toEqual({ itens: '800' }))
+  })
+})
+
+describe('perguntas condicionais', () => {
+  it('oferece em "quais substituir" só os sistemas marcados na 2.1', async () => {
+    const user = openSection('sistemas', { '2.1': ['financeiro', 'odu'] })
     expect(screen.queryByRole('group', { name: 'Quais devem ser substituídos?' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('radio', { name: 'Substituir alguns' }))
     const group = screen.getByRole('group', { name: 'Quais devem ser substituídos?' })
     expect(within(group).getAllByRole('checkbox').map((box) => box.getAttribute('value'))).toEqual(['financeiro', 'odu'])
+  })
+
+  it('pergunta o que é digitado em mais de um sistema só depois de marcar a digitação repetida', async () => {
+    const user = openSection('sistemas')
+    const typing = { name: 'O que é digitado em mais de um sistema?' }
+    expect(screen.queryByRole('group', typing)).not.toBeInTheDocument()
+
+    const pains = screen.getByRole('group', { name: 'Mais incomoda' })
+    await user.click(within(pains).getByRole('checkbox', { name: 'Lentidão' }))
+    expect(screen.queryByRole('group', typing)).not.toBeInTheDocument()
+    await user.click(within(pains).getByRole('checkbox', { name: 'Digitação repetida entre sistemas' }))
+
+    await user.click(within(screen.getByRole('group', typing)).getByRole('checkbox', { name: 'Cadastro de clientes' }))
+    await waitFor(() => expect(savedAnswers()['2.2.digitacao']).toEqual(['clientes']))
+    expect(savedAnswers()['2.2.incomoda']).toEqual(['lentidao', 'digitacao'])
+  })
+
+  it('pergunta o que migrar e quanto histórico quando o novo sistema substitui os atuais', async () => {
+    const user = openSection('sistemas')
+    const migrate = { name: 'O que precisa vir dos sistemas atuais?' }
+    const history = { name: 'Quanto histórico levar?' }
+    expect(screen.queryByRole('group', migrate)).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', history)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Substituir todos' }))
+    expect(screen.getByRole('group', migrate)).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', history)).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Quais devem ser substituídos?' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Substituir alguns' }))
+    await user.click(within(screen.getByRole('radiogroup', history)).getByRole('radio', { name: 'Último ano' }))
+    await waitFor(() => expect(savedAnswers()['2.3.historico']).toBe('1-ano'))
+    expect(screen.getByRole('group', migrate)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Integrar com os atuais' }))
+    expect(screen.queryByRole('group', migrate)).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', history)).not.toBeInTheDocument()
+  })
+
+  it('pergunta os sistemas dos hospitais quando a rastreabilidade vai até o paciente', async () => {
+    const user = openSection('rastreabilidade')
+    const systems = { name: 'Com quais sistemas dos hospitais o novo sistema precisa conversar?' }
+    expect(screen.queryByRole('textbox', systems)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: /^Paciente/ }))
+    await user.click(within(questionOf(/Até onde a rastreabilidade precisa chegar/)).getByRole('button', { name: 'Tasy' }))
+
+    expect(screen.getByRole('textbox', systems)).toHaveValue('Tasy')
+    await waitFor(() => expect(savedAnswers()['3.1.sistemas']).toBe('Tasy'))
+  })
+
+  it('mostra a faixa de orçamento que combina com o modelo de contratação', async () => {
+    const user = openSection('projeto')
+    const project = { name: 'Faixa de orçamento do projeto' }
+    const monthly = { name: 'Faixa de orçamento por mês' }
+    expect(screen.queryByRole('radiogroup', project)).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', monthly)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Projeto fechado' }))
+    await user.click(within(screen.getByRole('radiogroup', project)).getByRole('radio', { name: 'R$ 100 a 300 mil' }))
+    await waitFor(() => expect(savedAnswers()['8.4.projeto']).toBe('100-300k'))
+    expect(screen.queryByRole('radiogroup', monthly)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Mensalidade' }))
+    expect(screen.queryByRole('radiogroup', project)).not.toBeInTheDocument()
+    await user.click(within(screen.getByRole('radiogroup', monthly)).getByRole('radio', { name: 'Até R$ 5 mil por mês' }))
+    await waitFor(() => expect(savedAnswers()['8.4.mensal']).toBe('ate-5k'))
   })
 })
 
@@ -121,37 +207,53 @@ describe('opção "Outra"', () => {
     await waitFor(() => expect(savedAnswers()['4.1']).toEqual(['clinica']))
   })
 
-  it('funciona em escolha única, inclusive dentro de uma linha por unidade', async () => {
+  it('funciona em escolha única e sai quando outra opção é marcada', async () => {
     const user = openSection('operacao')
-    const hours = questionOf(/Horário de funcionamento/)
-    const teresina = within(within(hours).getByRole('radiogroup', { name: /^Teresina/ }))
-    await user.click(teresina.getByRole('radio', { name: 'Outro' }))
-    await user.type(within(hours).getByRole('textbox', { name: /Qual horário/ }), '12 x 36')
-    await waitFor(() => expect(savedAnswers()['1.3@teresina']).toBe('outra:12 x 36'))
-    expect(savedAnswers()['1.3@sao-luis']).toBeUndefined()
+    const hours = within(questionOf(/Horário de funcionamento/))
+    await user.click(hours.getByRole('radio', { name: 'Outro' }))
+    await user.type(hours.getByRole('textbox', { name: /Qual horário/ }), '12 x 36')
+    await waitFor(() => expect(savedAnswers()['1.3']).toBe('outra:12 x 36'))
+
+    await user.click(hours.getByRole('radio', { name: 'Turnos' }))
+    expect(hours.queryByRole('textbox', { name: /Qual horário/ })).not.toBeInTheDocument()
+    await waitFor(() => expect(savedAnswers()['1.3']).toBe('turnos'))
   })
 })
 
 describe('chips de sugestão', () => {
   it('em texto de várias linhas, cada chip entra e sai como uma linha', async () => {
-    const user = openSection('sistemas')
-    const chips = within(questionOf(/digitadas em mais de um sistema/))
-    await user.click(chips.getByRole('button', { name: 'Cadastro de clientes' }))
-    await user.click(chips.getByRole('button', { name: 'Dados do ciclo' }))
-    expect(chips.getByRole('textbox')).toHaveValue('Cadastro de clientes\nDados do ciclo')
-    expect(chips.getByRole('button', { name: 'Dados do ciclo' })).toHaveAttribute('aria-pressed', 'true')
+    const user = openSection('operacao')
+    const chips = within(questionOf(/Alguma unidade foge do padrão/))
+    await user.click(chips.getByRole('button', { name: 'Métodos diferentes em uma unidade' }))
+    await user.click(chips.getByRole('button', { name: 'Horário diferente em uma unidade' }))
+    expect(chips.getByRole('textbox')).toHaveValue('Métodos diferentes em uma unidade\nHorário diferente em uma unidade')
+    expect(chips.getByRole('button', { name: 'Horário diferente em uma unidade' })).toHaveAttribute('aria-pressed', 'true')
 
-    await user.click(chips.getByRole('button', { name: 'Cadastro de clientes' }))
-    expect(chips.getByRole('textbox')).toHaveValue('Dados do ciclo')
+    await user.click(chips.getByRole('button', { name: 'Métodos diferentes em uma unidade' }))
+    expect(chips.getByRole('textbox')).toHaveValue('Horário diferente em uma unidade')
   })
 
   it('em texto de uma linha, o chip vira a resposta', async () => {
-    const user = openSection('projeto')
-    const budget = within(questionOf(/Faixa de orçamento/))
-    await user.click(budget.getByRole('button', { name: 'Até R$ 100 mil' }))
-    expect(budget.getByRole('textbox', { name: 'Faixa de orçamento' })).toHaveValue('Até R$ 100 mil')
-    await user.click(budget.getByRole('button', { name: 'R$ 100 a 300 mil' }))
-    expect(budget.getByRole('textbox', { name: 'Faixa de orçamento' })).toHaveValue('R$ 100 a 300 mil')
+    const user = openSection('projeto', { '8.3': 'sim' })
+    const deadline = within(questionOf(/Há prazo ou data importante/))
+    await user.click(deadline.getByRole('button', { name: 'Auditoria ONA' }))
+    expect(deadline.getByRole('textbox', { name: 'O que acontece nessa data?' })).toHaveValue('Auditoria ONA')
+    await user.click(deadline.getByRole('button', { name: 'Início de contrato' }))
+    expect(deadline.getByRole('textbox', { name: 'O que acontece nessa data?' })).toHaveValue('Início de contrato')
+  })
+
+  it('na lista ordenada, sugere primeiro o que foi marcado como incômodo na 2.2', () => {
+    openSection('projeto', { '2.2.incomoda': ['lentidao', 'digitacao', 'outra:Etiquetas ilegíveis'] })
+    const ranked = within(questionOf(/três problemas mais urgentes/))
+    const chips = within(ranked.getByRole('group', { name: 'Sugestões de resposta' })).getAllByRole('button')
+
+    expect(chips.slice(0, 4).map((chip) => chip.textContent)).toEqual([
+      'Lentidão',
+      'Digitação repetida entre sistemas',
+      'Etiquetas ilegíveis',
+      'Rastreabilidade até o cliente',
+    ])
+    expect(chips.filter((chip) => chip.textContent === 'Digitação repetida entre sistemas')).toHaveLength(1)
   })
 
   it('na lista ordenada, os chips ocupam a próxima posição vazia', async () => {
@@ -187,10 +289,19 @@ describe('campos de texto', () => {
     expect(screen.getByText(/Confira o e-mail/)).toBeInTheDocument()
   })
 
-  it('sugere os módulos de prioridade alta na primeira entrega', async () => {
-    const user = openSection('projeto', { modulos: { cadastros: 'alta', faturamento: 'alta' } })
-    await user.click(screen.getByRole('button', { name: /Usar os módulos de prioridade alta/ }))
-    expect(screen.getByRole('textbox', { name: /primeira entrega/ })).toHaveValue('Cadastros, Faturamento')
+  it('pergunta por qual unidade a implantação começa', async () => {
+    const user = openSection('projeto')
+    const pilot = within(questionOf(/unidade piloto/))
+    expect(pilot.getAllByRole('radio').map((radio) => radio.closest('label')?.textContent)).toEqual([
+      'Sim: São Luís',
+      'Sim: Teresina',
+      'Sim: Maracanaú',
+      'Sim: Ananindeua',
+      'Não, todas juntas',
+      'Ainda não definido',
+    ])
+    await user.click(pilot.getByRole('radio', { name: 'Sim: Teresina' }))
+    await waitFor(() => expect(savedAnswers()['8.2']).toBe('teresina'))
   })
 
   it('preenche "quem decide" com os dados de quem responde', async () => {
@@ -214,11 +325,12 @@ describe('campos de texto', () => {
     expect(screen.getByRole('textbox', { name: 'Onde?' })).toBeInTheDocument()
   })
 
-  it('aceita só dígitos no número de usuários', async () => {
+  it('pergunta os usuários ao mesmo tempo por faixa, sem digitar números', async () => {
     const user = openSection('acesso')
-    const input = screen.getByRole('textbox', { name: /usuários ao mesmo tempo/ })
-    await user.type(input, '4x0')
-    expect(input).toHaveValue('40')
+    const peak = within(questionOf(/Quantas pessoas usam o sistema ao mesmo tempo/))
+    expect(peak.queryByRole('textbox')).not.toBeInTheDocument()
+    await user.click(peak.getByRole('radio', { name: '11 a 30' }))
+    await waitFor(() => expect(savedAnswers()['6.3']).toBe('11-30'))
   })
 })
 
@@ -238,8 +350,9 @@ describe('matrizes', () => {
     const user = openSection('multiunidade')
     await user.click(within(screen.getByRole('radiogroup', { name: 'Cadastro de clientes' })).getByRole('radio', { name: 'Comum a todas' }))
     await user.click(within(screen.getByRole('radiogroup', { name: 'Estoque de insumos' })).getByRole('radio', { name: 'Cada unidade' }))
-    await waitFor(() => expect(savedAnswers()['7.1']).toEqual({ clientes: 'comum', insumos: 'unidade' }))
-    expect(screen.getByText('sem resposta')).toHaveTextContent('5 sem resposta')
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Fluxo de liberação de lote' })).getByRole('radio', { name: 'Comum a todas' }))
+    await waitFor(() => expect(savedAnswers()['7.1']).toEqual({ clientes: 'comum', insumos: 'unidade', liberacao: 'comum' }))
+    expect(screen.getByText('sem resposta')).toHaveTextContent('8 sem resposta')
   })
 })
 

@@ -1,7 +1,7 @@
 import { formatDateBR, parseIsoDate } from './format'
 import { DOCUMENTS, HIGH_PRIORITY_SOFT_LIMIT, SHARED_ITEMS } from './options'
 import { blockCompletion, missingRequired } from './progress'
-import { cityOf, joinPt, recordOf, textOf, unitsWhere } from './read'
+import { cityOf, joinPt, listOf, recordOf, textLines, textOf, unitsWhere } from './read'
 import { SECTIONS } from './schema'
 import type { Answers, UnitId } from './types'
 
@@ -30,12 +30,12 @@ const missingRespondent: Rule = (answers) =>
   missingRequired(answers).length > 0 ? alert('Falta informar quem respondeu — sem isso o pacote não pode ser gerado.') : null
 
 const offline: Rule = (answers) => {
-  const units = unitsWhere(answers, '2.8', (values) => values.includes('offline'))
+  const units = unitsWhere(answers, '2.7', (values) => values.includes('offline'))
   return units.length > 0 ? alert(`Precisa funcionar sem internet em ${cities(units)}: prever operação offline com sincronização.`) : null
 }
 
 const unstable: Rule = (answers) => {
-  const units = unitsWhere(answers, '2.8', (values) => values.includes('instavel'))
+  const units = unitsWhere(answers, '2.7', (values) => values.includes('instavel'))
   return units.length > 0 ? alert(`Internet instável em ${cities(units)}: o sistema deve tolerar quedas sem perder registros.`) : null
 }
 
@@ -63,36 +63,39 @@ const undecidedSharing: Rule = (answers) => {
   return items.length > 0 ? alert(`Definir se são comuns ou por unidade: ${joinPt(items)}.`) : null
 }
 
-const cycleExport: Rule = (answers) => {
-  const units = unitsWhere(answers, '2.6', (values) => values.includes('impressao') || values.includes('nao'))
-  return units.length > 0
-    ? info(`Esterilizadores sem exportação de ciclos em ${cities(units)}: registro digitado ou integração com o fabricante.`)
+const cycleExport: Rule = (answers) =>
+  answers['2.5'] === 'impressao' || answers['2.5'] === 'nao'
+    ? info('Os esterilizadores não exportam dados dos ciclos: registro digitado ou integração com o fabricante.')
     : null
-}
+
+/** Equipamentos que a rastreabilidade por etiqueta pressupõe. */
+const TRACEABILITY_EQUIPMENT = [
+  { value: 'leitor', label: 'leitor de código de barras' },
+  { value: 'impressora', label: 'impressora de etiquetas' },
+] as const
 
 const equipment: Rule = (answers) => {
-  const missing = [
-    { value: 'leitor', label: 'leitor de código de barras' },
-    { value: 'impressora', label: 'impressora de etiquetas' },
-  ].flatMap(({ value, label }) => {
-    const units = unitsWhere(answers, '2.7', (values) => !values.includes(value))
-    return units.length > 0 ? [`${label} em ${cities(units)}`] : []
-  })
-  return missing.length > 0 ? info(`Equipamentos a providenciar: ${missing.join('; ')}.`) : null
+  const available = listOf(answers, '2.6')
+  if (available.length === 0) return null
+  const missing = TRACEABILITY_EQUIPMENT.filter(({ value }) => !available.includes(value)).map(({ label }) => label)
+  return missing.length > 0 ? info(`Equipamentos a providenciar: ${joinPt(missing)}.`) : null
 }
 
-const patientTrace: Rule = (answers) =>
-  answers['3.1'] === 'paciente' ? info('Rastreabilidade até o paciente depende de integração com os sistemas dos clientes.') : null
+const patientTrace: Rule = (answers) => {
+  if (answers['3.1'] !== 'paciente') return null
+  const systems = textLines(answers, '3.1.sistemas')
+  return info(`Rastreabilidade até o paciente depende de integração com os sistemas dos clientes${systems ? ` (${systems})` : ''}.`)
+}
 
 const crossUnitMaterial: Rule = (answers) =>
-  answers['7.4'] === 'sim' ? info('Há material processado em outra unidade: o sistema precisa registrar transferências entre unidades.') : null
+  answers['7.5'] === 'sim' ? info('Há material processado em outra unidade: o sistema precisa registrar transferências entre unidades.') : null
 
 const sharedClients: Rule = (answers) =>
-  answers['7.3'] === 'sim' ? info('Clientes atendidos por mais de uma unidade: o cadastro de clientes deve ser compartilhado.') : null
+  answers['7.4'] === 'sim' ? info('Clientes atendidos por mais de uma unidade: o cadastro de clientes deve ser compartilhado.') : null
 
 const billingEntity: Rule = (answers) => {
-  if (answers['7.5'] === 'todas') return info('Cada unidade emite nota com CNPJ próprio: faturamento e medição separados por unidade.')
-  if (answers['7.5'] === 'depende') return info('O CNPJ de faturamento varia por unidade: o sistema precisa aceitar os dois modelos.')
+  if (answers['7.6'] === 'todas') return info('Cada unidade emite nota com CNPJ próprio: faturamento e medição separados por unidade.')
+  if (answers['7.6'] === 'depende') return info('O CNPJ de faturamento varia por unidade: o sistema precisa aceitar os dois modelos.')
   return null
 }
 

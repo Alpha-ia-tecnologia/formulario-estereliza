@@ -5,20 +5,20 @@ const NOW = new Date('2026-09-28T12:00:00')
 describe('rascunho no navegador', () => {
   it('cria um rascunho único com a data de hoje e todas as unidades marcadas', () => {
     expect(createDraft(NOW)).toMatchObject({
-      version: 2,
+      version: 3,
       lastSection: 'identificacao',
       answers: { 'ident.data': '2026-09-28', 'ident.unidades': ['sao-luis', 'teresina', 'maracanau', 'ananindeua'] },
     })
   })
 
   it('salva e carrega o rascunho', () => {
-    const draft = { ...createDraft(NOW), answers: { 'ident.nome': 'Ana', '1.1@sao-luis': ['vapor'] } }
+    const draft = { ...createDraft(NOW), answers: { 'ident.nome': 'Ana', '1.1': ['vapor'], '2.7@teresina': 'offline' } }
     saveDraft(draft)
     expect(loadDraft()).toEqual(draft)
   })
 
-  it('usa uma chave própria da versão 2', () => {
-    expect(DRAFT_KEY).toBe('steriliza-requisitos:v2')
+  it('usa uma chave própria da versão 3', () => {
+    expect(DRAFT_KEY).toBe('steriliza-requisitos:v3')
   })
 
   it('retorna null quando não há rascunho', () => {
@@ -32,9 +32,31 @@ describe('rascunho no navegador', () => {
     expect(loadDraft()).toBeNull()
   })
 
+  it('ignora um rascunho da versão 2, cujos ids têm outro significado', () => {
+    const v2 = { ...createDraft(NOW), version: 2, answers: { 'ident.nome': 'Ana', '2.8@teresina': 'offline' } }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(v2))
+    localStorage.setItem('steriliza-requisitos:v2', JSON.stringify(v2))
+
+    expect(loadDraft()).toBeNull()
+  })
+
   it('limpa respostas inválidas ao carregar', () => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...createDraft(NOW), answers: { '1.3@teresina': 'turnos', hack: '<script>' } }))
-    expect(loadDraft()?.answers).toEqual({ '1.3@teresina': 'turnos' })
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ ...createDraft(NOW), answers: { '2.7@teresina': 'instavel', '1.3@teresina': 'turnos', hack: '<script>' } }),
+    )
+    expect(loadDraft()?.answers).toEqual({ '2.7@teresina': 'instavel' })
+  })
+
+  it('completa datas e etapa ausentes ao carregar', () => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ version: 3, answers: {}, createdAt: '2026-09-01T10:00:00.000Z' }))
+    expect(loadDraft()).toEqual({
+      version: 3,
+      answers: {},
+      createdAt: '2026-09-01T10:00:00.000Z',
+      updatedAt: '2026-09-01T10:00:00.000Z',
+      lastSection: 'identificacao',
+    })
   })
 
   it('remove o rascunho', () => {

@@ -13,7 +13,8 @@ function renderApp(hash = '', answers?: Answers, store: AttachmentStore = create
   return user
 }
 
-const laneOf = (name: RegExp) => screen.getAllByRole('group', { name })
+/** Linha de uma unidade numa pergunta de escolha única feita unidade por unidade (ex.: internet). */
+const laneOf = (name: RegExp) => screen.getAllByRole('radiogroup', { name })
 
 async function uploadJson(user: ReturnType<typeof userEvent.setup>, content: object) {
   const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
@@ -33,8 +34,8 @@ describe('fluxo completo', () => {
     await user.click(screen.getByRole('button', { name: /Próxima etapa.*Operação atual/ }))
 
     expect(await screen.findByRole('heading', { level: 1, name: /Operação atual/ })).toBeInTheDocument()
-    const [saoLuisMethods] = laneOf(/^São Luís MA$/)
-    await user.click(within(saoLuisMethods!).getByRole('checkbox', { name: 'Vapor' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Vapor' }))
+    await user.type(screen.getByRole('textbox', { name: 'Funcionários — Teresina' }), '14')
 
     await user.click(screen.getAllByRole('button', { name: 'Revisar e enviar' })[0]!)
     expect(await screen.findByRole('heading', { level: 1, name: 'Revise e envie' })).toBeInTheDocument()
@@ -43,6 +44,7 @@ describe('fluxo completo', () => {
     )
     expect(screen.getByText('Mariana Costa')).toBeInTheDocument()
     expect(screen.getByText('Vapor')).toBeInTheDocument()
+    expect(screen.getByText('Funcionários: 14 (pessoas)').closest('p')).toHaveTextContent('Teresina: Funcionários: 14 (pessoas)')
 
     await user.click(screen.getByRole('button', { name: /Baixar pacote/ }))
     expect(await screen.findByText(/steriliza-requisitos-\d{4}-\d{2}-\d{2}\.zip/)).toBeInTheDocument()
@@ -79,13 +81,17 @@ describe('fluxo completo', () => {
     await user.click(screen.getByRole('button', { name: /Próxima etapa.*Operação atual/ }))
 
     expect(await screen.findByRole('heading', { level: 1, name: /Operação atual/ })).toBeInTheDocument()
-    expect(laneOf(/^Teresina PI$/).length).toBeGreaterThan(0)
-    expect(screen.queryAllByRole('group', { name: /^Ananindeua PA$/ })).toHaveLength(0)
+    expect(screen.getByRole('textbox', { name: 'Funcionários — Teresina' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: /Ananindeua/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Próxima etapa.*Sistemas e infraestrutura/ }))
+    expect(await screen.findByRole('heading', { level: 1, name: /Sistemas e infraestrutura/ })).toBeInTheDocument()
+    expect(laneOf(/^Teresina PI$/).length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('radiogroup', { name: /^Ananindeua PA$/ })).toHaveLength(0)
   })
 
   it('bloqueia o pacote enquanto falta o nome de quem respondeu', async () => {
-    const user = renderApp('#/revisao', { '2.9': 'nuvem' })
+    const user = renderApp('#/revisao', { '2.8': 'nuvem' })
     expect(await screen.findByRole('alert')).toHaveTextContent(/quem respondeu/)
     expect(screen.getByRole('button', { name: /Baixar pacote/ })).toBeDisabled()
 
@@ -100,13 +106,13 @@ describe('fluxo completo', () => {
     await user.click(screen.getByRole('checkbox', { name: /Mostrar só as/ }))
     expect(screen.queryByText('Ana')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /7\.3 Um mesmo cliente/ }))
+    await user.click(screen.getByRole('button', { name: /7\.4 Um mesmo cliente/ }))
     expect(await screen.findByRole('heading', { level: 1, name: /Operação multiunidade/ })).toBeInTheDocument()
-    await waitFor(() => expect(document.activeElement?.id).toBe('pergunta-7-3'))
+    await waitFor(() => expect(document.activeElement?.id).toBe('pergunta-7-4'))
   })
 
   it('termina o relatório com a síntese, que acompanha as respostas e pode ser copiada', async () => {
-    const user = renderApp('#/revisao', { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.8@teresina': 'offline' })
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.7@teresina': 'offline' })
     const synthesis = screen.getByRole('region', { name: 'Síntese' })
     const lastSection = screen.getByRole('region', { name: /Documentos para anexar/ })
 
@@ -196,7 +202,7 @@ describe('fluxo completo', () => {
 
   it('importa um arquivo de respostas e abre a revisão', async () => {
     const user = renderApp()
-    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 2, respostas: { 'ident.nome': 'Paulo' } })
+    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 3, respostas: { 'ident.nome': 'Paulo' } })
     expect(await screen.findByRole('heading', { level: 1, name: 'Revise e envie' })).toBeInTheDocument()
     expect(screen.getByText('Paulo')).toBeInTheDocument()
   })
@@ -206,7 +212,7 @@ describe('fluxo completo', () => {
     const failing = { ...createMemoryStore(), clear: () => Promise.reject(new Error('QuotaExceeded')) }
     const user = renderApp('', undefined, failing)
 
-    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 2, respostas: { 'ident.nome': 'Importado' } })
+    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 3, respostas: { 'ident.nome': 'Importado' } })
     const dialog = screen.getByRole('dialog', { hidden: true })
     await user.click(within(dialog).getByRole('button', { name: 'Substituir', hidden: true }))
 
@@ -218,6 +224,19 @@ describe('fluxo completo', () => {
   it('explica quando o arquivo é da versão antiga, por unidade', async () => {
     const user = renderApp()
     await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 1, unidade: 'teresina', respostas: {} })
-    expect(await screen.findByRole('alert')).toHaveTextContent(/não é compatível/)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Este arquivo é de uma versão anterior do formulário e não pode ser importado.',
+    )
+  })
+
+  it('recusa um arquivo da versão 2 sem tocar no rascunho', async () => {
+    saveDraft({ ...createDraft(), answers: { 'ident.nome': 'Original' } })
+    const user = renderApp()
+    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 2, respostas: { 'ident.nome': 'Antigo', '2.8@teresina': 'offline' } })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Este arquivo é de uma versão anterior do formulário e não pode ser importado.',
+    )
+    expect(loadDraft()?.answers['ident.nome']).toBe('Original')
   })
 })

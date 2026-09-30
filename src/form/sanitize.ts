@@ -12,8 +12,12 @@ import type { AnswerValue, Answers, Field } from './types'
  */
 
 export const FORM_ID = 'steriliza-requisitos'
-/** Versão 2: um formulário único para todas as unidades (multiunidade). */
-export const FORM_VERSION = 2
+/**
+ * Versão 3: as unidades operam igual — só volume, equipe e internet são por
+ * unidade — e as perguntas foram renumeradas. Versões anteriores usam os mesmos
+ * ids com outro significado, por isso não são importadas.
+ */
+export const FORM_VERSION = 3
 export const MAX_TEXT_LENGTH = 5000
 
 export class ImportError extends Error {
@@ -118,7 +122,7 @@ export function parseExport(raw: unknown): ParsedExport {
   const data = raw as Record<string, unknown>
   if (data.formulario !== FORM_ID) throw new ImportError('Este arquivo não é do formulário de requisitos da Steriliza.')
   if (data.versao !== FORM_VERSION) {
-    throw new ImportError('Esta versão do arquivo não é compatível com o formulário atual (multiunidade).')
+    throw new ImportError('Este arquivo é de uma versão anterior do formulário e não pode ser importado.')
   }
   return { answers: sanitizeAnswers(data.respostas) }
 }
