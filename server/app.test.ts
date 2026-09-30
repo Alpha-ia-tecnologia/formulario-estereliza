@@ -18,6 +18,13 @@ const TOKEN = 'segredo-de-teste'
 
 const db = new PGlite()
 
+// Iniciar o PostgreSQL em WASM leva vários segundos quando os arquivos de teste rodam em paralelo.
+const PGLITE_STARTUP_MS = 60_000
+
+beforeAll(async () => {
+  await db.waitReady
+}, PGLITE_STARTUP_MS)
+
 afterAll(async () => {
   await db.close()
 })

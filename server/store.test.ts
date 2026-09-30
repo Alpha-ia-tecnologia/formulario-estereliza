@@ -4,6 +4,13 @@ import { type NewResponse, openStore } from './store'
 // PostgreSQL de verdade, compilado para WASM e em memória: testa o mesmo SQL que roda em produção.
 const db = new PGlite()
 
+// Iniciar o PostgreSQL em WASM leva vários segundos quando os arquivos de teste rodam em paralelo.
+const PGLITE_STARTUP_MS = 60_000
+
+beforeAll(async () => {
+  await db.waitReady
+}, PGLITE_STARTUP_MS)
+
 afterAll(async () => {
   await db.close()
 })

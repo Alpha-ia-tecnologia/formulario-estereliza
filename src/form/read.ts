@@ -96,30 +96,3 @@ export function groupByAnswer(answers: Answers, fieldId: string): string {
     )
     .join('; ')
 }
-
-export interface UnitSum {
-  readonly total: number
-  readonly reported: number
-}
-
-/** Soma de uma grade numérica por unidade — de um item ou de todos. */
-export function sumPerUnit(answers: Answers, fieldId: string, key?: string): UnitSum {
-  return selectedUnits(answers).reduce<UnitSum>(
-    (acc, unit) => {
-      const record = recordOf(answers, unitKey(fieldId, unit))
-      const values = (key ? [record[key]] : Object.values(record)).filter((value) => value !== undefined && value !== '')
-      if (values.length === 0) return acc
-      return { total: acc.total + values.reduce((sum, value) => sum + (Number(value) || 0), 0), reported: acc.reported + 1 }
-    },
-    { total: 0, reported: 0 },
-  )
-}
-
-/** Total de uma grade numérica em cada unidade que respondeu: "São Luís 11, Teresina 5". */
-export function totalsByUnit(answers: Answers, fieldId: string): string {
-  return selectedUnits(answers)
-    .map((unit) => ({ unit, sum: sumPerUnit({ ...answers, 'ident.unidades': [unit] }, fieldId) }))
-    .filter(({ sum }) => sum.reported > 0)
-    .map(({ unit, sum }) => `${cityOf(unit)} ${sum.total}`)
-    .join(', ')
-}

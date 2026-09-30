@@ -22,10 +22,11 @@ describe('SynthesisPanel', () => {
   })
 
   it('mostra cada número antes do rótulo, na mesma ordem da leitura', () => {
-    render(<SynthesisPanel answers={{ 'ident.unidades': ['teresina'], '1.2@teresina': { itens: '800' } }} />)
+    render(<SynthesisPanel answers={{ 'ident.unidades': ['teresina'], modulos: { coleta: 'alta', portal: 'baixa' }, '6.3': '11-30' }} />)
 
     const metrics = screen.getByRole('list', { name: 'Números' })
     expect(metrics).toHaveTextContent('1 Unidade')
-    expect(metrics).toHaveTextContent('800 Kits e itens por mês')
+    expect(metrics).toHaveTextContent('1 Módulos em prioridade alta de 13')
+    expect(metrics).toHaveTextContent('11 a 30 Usuários simultâneos')
   })
 })

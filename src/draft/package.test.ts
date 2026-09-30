@@ -42,7 +42,7 @@ describe('buildExportJson', () => {
       answers: {
         'ident.nome': 'Ana',
         'ident.unidades': ['sao-luis', 'teresina'],
-        '1.3': 'turnos',
+        '2.8': 'nuvem',
         '2.7@sao-luis': 'offline',
         '2.7@maracanau': 'estavel',
         '4.6': 'nao',
@@ -60,13 +60,37 @@ describe('buildExportJson', () => {
     expect(json.respostas).toEqual({
       'ident.nome': 'Ana',
       'ident.unidades': ['sao-luis', 'teresina'],
-      '1.3': 'turnos',
+      '2.8': 'nuvem',
       '2.7@sao-luis': 'offline',
       '4.6': 'nao',
     })
-    expect(json.resumo.find((row) => row.numero === '1.3')?.resposta).toBe('Turnos')
-    expect(json.resumo.find((row) => row.numero === '2.7')?.resposta).toBe('São Luís: Precisa funcionar sem internet')
-    expect(json.resumo.find((row) => row.numero === '3.2')?.resposta).toBeNull()
+    expect(json.resumo.find((row) => row.numero === '1.8')?.resposta).toBe('Nuvem')
+    expect(json.resumo.find((row) => row.numero === '1.7')?.resposta).toBe('São Luís: Precisa funcionar sem internet')
+    expect(json.resumo.find((row) => row.numero === '2.2')?.resposta).toBeNull()
+    expect(json.resumo.some((row) => row.secao === 'Detalhes dos módulos prioritários')).toBe(false)
+  })
+
+  it('exporta os detalhes só dos módulos em prioridade alta, sem número de pergunta', () => {
+    const json = buildExportJson({
+      answers: { modulos: { coleta: 'alta', portal: 'media' }, 'm.coleta.1': ['fixa'], 'm.portal.1': ['laudos'] },
+      attachments: [],
+      now: NOW,
+    })
+    expect(json.respostas).toEqual({ modulos: { coleta: 'alta', portal: 'media' }, 'm.coleta.1': ['fixa'] })
+    expect(json.resumo.filter((row) => row.secao === 'Detalhes dos módulos prioritários')).toEqual([
+      {
+        secao: 'Detalhes dos módulos prioritários',
+        numero: null,
+        pergunta: 'Coleta e entrega: Como as coletas e rotas são programadas?',
+        resposta: 'Rota fixa: mesmos clientes nos mesmos dias',
+      },
+      {
+        secao: 'Detalhes dos módulos prioritários',
+        numero: null,
+        pergunta: 'Coleta e entrega: O que o protocolo de coleta e entrega precisa registrar?',
+        resposta: null,
+      },
+    ])
   })
 
   it('inclui a síntese estruturada, calculada só com as respostas exportadas', () => {
@@ -94,21 +118,21 @@ describe('pacote .zip', () => {
     const entries = unzipSync(new Uint8Array(await built.blob.arrayBuffer()))
     expect(Object.keys(entries).sort()).toEqual([JSON_NAME, MARKDOWN_NAME, 'anexos/formularios/a (2).txt', 'anexos/formularios/a.txt'].sort())
     const markdown = new TextDecoder().decode(entries[MARKDOWN_NAME])
-    expect(markdown.indexOf('## Síntese')).toBeGreaterThan(markdown.indexOf('## 9. Documentos para anexar'))
+    expect(markdown.indexOf('## Síntese')).toBeGreaterThan(markdown.indexOf('## 6. Operação multiunidade'))
   })
 
   it('importa de volta um pacote exportado, com anexos', async () => {
     const built = await buildPackage({
-      answers: { 'ident.nome': 'Ana', '1.1': ['vapor'], '2.7@teresina': 'instavel', documentos: { equipamentos: 'anexado' } },
+      answers: { 'ident.nome': 'Ana', '2.1': ['producao'], '2.7@teresina': 'instavel', documentos: { equipamentos: 'anexado' } },
       attachments: [attachment('equipamentos', 'lista.csv', 'autoclave')],
       now: NOW,
     })
     const imported = await readPackage(asFile(built.blob, built.fileName))
+    // A lista de documentos saiu do formulário: o status não volta, mas os arquivos sim.
     expect(imported.answers).toEqual({
       'ident.nome': 'Ana',
-      '1.1': ['vapor'],
+      '2.1': ['producao'],
       '2.7@teresina': 'instavel',
-      documentos: { equipamentos: 'anexado' },
     })
     expect(imported.files).toHaveLength(1)
     expect(imported.files[0]).toMatchObject({ docKey: 'equipamentos', name: 'lista.csv' })

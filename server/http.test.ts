@@ -18,9 +18,13 @@ const chunkedBody = (parts: number, size: number): RequestInit =>
     duplex: 'half',
   }) as RequestInit
 
+// Inclui iniciar o PostgreSQL em WASM, que leva vários segundos quando os arquivos de teste rodam em paralelo.
+const PGLITE_TEST_MS = 60_000
+
 describe('servidor http', () => {
   it('encaminha as requisições ao handler e recusa corpos grandes antes de guardá-los', async () => {
     const db = new PGlite()
+    await db.waitReady
     const store = await openStore(db)
     const handler = createHandler({ store, token: '', distDir: null, limits: { ...UPLOAD_LIMITS, maxTotalBytes: 100_000 } })
     const running = await serve(handler, { host: '127.0.0.1', port: 0 })
@@ -45,5 +49,5 @@ describe('servidor http', () => {
     expect(await store.list()).toHaveLength(1)
     await running.close()
     await db.close()
-  })
+  }, PGLITE_TEST_MS)
 })

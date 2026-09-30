@@ -1,20 +1,18 @@
 import { type AttentionPoint, attentionPoints } from './attention'
 import { formatDateBR } from './format'
-import { MODULES, PRIORITY_LEVELS, SHARING_LEVELS, SHARED_ITEMS, isUnitId, selectedUnits } from './options'
-import { overallProgress, pruneHidden } from './progress'
 import {
-  choiceText,
-  cityOf,
-  groupByAnswer,
-  joinPt,
-  listOf,
-  oneLine,
-  recordOf,
-  sumPerUnit,
-  textLines,
-  textOf,
-  totalsByUnit,
-} from './read'
+  CYCLE_EQUIPMENT,
+  CYCLE_RECORD_LEVELS,
+  MODULES,
+  PRIORITY_LEVELS,
+  SHARING_LEVELS,
+  SHARED_ITEMS,
+  WORKSTATIONS,
+  WORKSTATION_LEVELS,
+  selectedUnits,
+} from './options'
+import { overallProgress, pruneHidden } from './progress'
+import { choiceText, cityOf, groupByAnswer, joinPt, oneLine, recordOf, textLines, textOf } from './read'
 import type { Answers, Item, Option } from './types'
 
 /**
@@ -44,7 +42,6 @@ export interface Synthesis {
 
 type Line = string | null
 
-const numberFormat = new Intl.NumberFormat('pt-BR')
 const line = (label: string, value: string): Line => (value ? `${label}: ${value}` : null)
 const when = (condition: boolean, text: string): Line => (condition ? text : null)
 
@@ -62,25 +59,12 @@ function headline(answers: Answers): string {
 
 function metrics(answers: Answers): readonly SynthesisMetric[] {
   const units = selectedUnits(answers)
-  const sums: ReadonlyArray<[string, ReturnType<typeof sumPerUnit>]> = [
-    ['Funcionários', sumPerUnit(answers, '1.4')],
-    ['Kits e itens por mês', sumPerUnit(answers, '1.2', 'itens')],
-    ['Ciclos por mês', sumPerUnit(answers, '1.2', 'ciclos')],
-    ['Clientes ativos', sumPerUnit(answers, '1.2', 'clientes')],
-  ]
-  const fromUnits = sums
-    .filter(([, sum]) => sum.reported > 0)
-    .map(([label, sum]): SynthesisMetric => {
-      const partial = sum.reported < units.length ? `informado em ${sum.reported} de ${units.length} unidades` : undefined
-      return partial ? { label, value: numberFormat.format(sum.total), detail: partial } : { label, value: numberFormat.format(sum.total) }
-    })
   const priorities = recordOf(answers, 'modulos')
   const high = Object.values(priorities).filter((level) => level === 'alta').length
   const users = answers['6.3'] === 'nao-sei' ? '' : choiceText(answers, '6.3')
   return [
     { label: 'Preenchido', value: `${Math.round(overallProgress(answers).ratio * 100)}%` },
     { label: units.length === 1 ? 'Unidade' : 'Unidades', value: String(units.length) },
-    ...fromUnits,
     ...(Object.keys(priorities).length > 0 ? [{ label: 'Módulos em prioridade alta', value: String(high), detail: `de ${MODULES.length}` }] : []),
     ...(users ? [{ label: 'Usuários simultâneos', value: users }] : []),
   ]
@@ -107,7 +91,7 @@ function billing(answers: Answers): Line {
   const period = choiceText(answers, '4.5.periodicidade')
   const docs = choiceText(answers, '4.5.documentos')
   const main = [period, docs ? `com ${docs}` : ''].filter(Boolean).join(', ')
-  return line('Faturamento', withDetail(main, textLines(answers, '4.5.obs')))
+  return line('Faturamento', main)
 }
 
 function publicClients(answers: Answers): Line {
@@ -121,19 +105,6 @@ const matrixLines = (answers: Answers, id: string, items: readonly Item[], level
   return levels.map((level) => line(prefix(level.label), joinPt(items.filter((item) => record[item.key] === level.value).map((item) => item.label))))
 }
 
-function person(answers: Answers, id: string): string {
-  const record = recordOf(answers, id)
-  return [record.nome?.trim(), record.contato?.trim()].filter(Boolean).join(' — ')
-}
-
-function ranked(answers: Answers): string {
-  return listOf(answers, '8.1')
-    .map((item, index) => ({ item: item.trim(), position: index + 1 }))
-    .filter(({ item }) => item !== '')
-    .map(({ item, position }) => `${position}) ${item}`)
-    .join('; ')
-}
-
 function crossUnit(answers: Answers, id: string, detailId: string, text: string): Line {
   if (answers[id] !== 'sim') return null
   const detail = textLines(answers, detailId)
@@ -145,26 +116,7 @@ function release(answers: Answers): Line {
   return line('Liberação de lote', [choiceText(answers, '3.4.quem'), after ? `após ${after.toLowerCase()}` : ''].filter(Boolean).join(', '))
 }
 
-function pilot(answers: Answers): Line {
-  const value = answers['8.2']
-  if (value === 'todas') return 'Implantação: todas as unidades juntas'
-  if (value === 'a-definir') return 'Implantação: unidade piloto ainda não definida'
-  // Uma unidade desmarcada depois de escolhida como piloto não vale mais.
-  return isUnitId(value) && selectedUnits(answers).includes(value) ? `Implantação: começa por ${cityOf(value)}` : null
-}
-
 const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answers) => readonly Line[] }> = [
-  {
-    id: 'operacao',
-    title: 'Operação',
-    build: (a) => [
-      line('Métodos', choiceText(a, '1.1')),
-      line('Horário', choiceText(a, '1.3')),
-      line('Limpeza feita pela Steriliza', choiceText(a, '1.5')),
-      line('Equipe por unidade', totalsByUnit(a, '1.4')),
-      line('Diferenças entre unidades', textLines(a, '1.6')),
-    ],
-  },
   {
     id: 'sistemas',
     title: 'Sistemas e infraestrutura',
@@ -175,9 +127,11 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
       line('Digitado em mais de um sistema', choiceText(a, '2.2.digitacao')),
       strategy(a),
       line('Migrar dos sistemas atuais', withDetail(choiceText(a, '2.3.migrar'), choiceText(a, '2.3.historico'))),
-      line('Outros sistemas', withDetail(choiceText(a, '2.4'), textOf(a, '2.4.nomes'))),
-      line('Exportação de ciclos', choiceText(a, '2.5')),
-      line('Equipamentos', choiceText(a, '2.6')),
+      line('Outros sistemas', choiceText(a, '2.4')),
+      ...matrixLines(a, '2.5.registro', CYCLE_EQUIPMENT, CYCLE_RECORD_LEVELS, (label) => `Registro de ciclo — ${label.toLowerCase()}`),
+      ...matrixLines(a, '2.6.postos', WORKSTATIONS, WORKSTATION_LEVELS, (label) => `Postos — ${label.toLowerCase()}`),
+      line('Integrações sem digitação', choiceText(a, '2.9')),
+      line('Tolerância a parada', withDetail(choiceText(a, '2.10'), choiceText(a, '2.10.perda'))),
       line('Internet', groupByAnswer(a, '2.7')),
       line('Hospedagem preferida', choiceText(a, '2.8')),
     ],
@@ -193,6 +147,8 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
       line('Não conformidades e recolhimentos', choiceText(a, '3.5')),
       line('Mais pedidos em auditorias', choiceText(a, '3.6')),
       line('Guarda dos registros', choiceText(a, '3.7')),
+      line('Normas e acreditações', choiceText(a, '3.8')),
+      line('Falha de indicador ou teste', withDetail(choiceText(a, '3.9'), choiceText(a, '3.9.acoes'))),
     ],
   },
   {
@@ -201,7 +157,7 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
     build: (a) => [
       line('Clientes', choiceText(a, '4.1')),
       line('Coleta e entrega', choiceText(a, '4.2')),
-      line('Pedido de coleta', withDetail(choiceText(a, '4.3'), textLines(a, '4.3.detalhes'))),
+      line('Pedido de coleta', choiceText(a, '4.3')),
       line('Cobrança por', choiceText(a, '4.4')),
       billing(a),
       publicClients(a),
@@ -223,6 +179,7 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
       line('Usuários ao mesmo tempo no pico', choiceText(a, '6.3')),
       line('Dados pessoais tratados', choiceText(a, '6.4')),
       line('Responsável pela LGPD', textOf(a, '6.4.responsavel')),
+      line('Correção de registros', choiceText(a, '6.5')),
     ],
   },
   {
@@ -237,22 +194,6 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
       crossUnit(a, '7.5', '7.5.como', 'Material de uma unidade é processado em outra'),
       line('CNPJ próprio por unidade', choiceText(a, '7.6')),
       line('Novas unidades', withDetail(choiceText(a, '7.7'), textOf(a, '7.7.onde'))),
-    ],
-  },
-  {
-    id: 'projeto',
-    title: 'Projeto',
-    build: (a) => [
-      line('Problemas mais urgentes', ranked(a)),
-      pilot(a),
-      a['8.3'] === 'sim'
-        ? line('Prazo', withDetail(textOf(a, '8.3.data') ? formatDateBR(textOf(a, '8.3.data')) : '', textOf(a, '8.3.motivo')) || 'com data a definir')
-        : when(a['8.3'] === 'nao', 'Sem prazo definido'),
-      // Só uma das faixas está visível, conforme o modelo; a síntese recebe só respostas visíveis.
-      line('Modelo de contratação', withDetail(choiceText(a, '8.4'), choiceText(a, '8.4.projeto') || choiceText(a, '8.4.mensal'))),
-      line('Quem decide', person(a, '8.5.decisor')),
-      line('Ponto focal', person(a, '8.5.focal')),
-      line('Sucesso em 6 meses', textLines(a, '8.6')),
     ],
   },
 ]

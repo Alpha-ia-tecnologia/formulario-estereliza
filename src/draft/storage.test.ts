@@ -12,7 +12,7 @@ describe('rascunho no navegador', () => {
   })
 
   it('salva e carrega o rascunho', () => {
-    const draft = { ...createDraft(NOW), answers: { 'ident.nome': 'Ana', '1.1': ['vapor'], '2.7@teresina': 'offline' } }
+    const draft = { ...createDraft(NOW), answers: { 'ident.nome': 'Ana', '2.1': ['producao'], '2.7@teresina': 'offline' } }
     saveDraft(draft)
     expect(loadDraft()).toEqual(draft)
   })
@@ -43,7 +43,7 @@ describe('rascunho no navegador', () => {
   it('limpa respostas inválidas ao carregar', () => {
     localStorage.setItem(
       DRAFT_KEY,
-      JSON.stringify({ ...createDraft(NOW), answers: { '2.7@teresina': 'instavel', '1.3@teresina': 'turnos', hack: '<script>' } }),
+      JSON.stringify({ ...createDraft(NOW), answers: { '2.7@teresina': 'instavel', '2.8@teresina': 'nuvem', '1.1': ['vapor'], hack: '<script>' } }),
     )
     expect(loadDraft()?.answers).toEqual({ '2.7@teresina': 'instavel' })
   })

@@ -1,8 +1,24 @@
+import { MODULES } from './options'
 import { ALL_FIELDS, SECTIONS, getField, getSection, sectionIndex } from './schema'
 
 describe('schema do formulário', () => {
-  it('tem a identificação e 9 seções numeradas, na ordem', () => {
-    expect(SECTIONS.map((section) => section.number ?? '-')).toEqual(['-', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+  it('tem a identificação, 6 etapas numeradas e os detalhes dos módulos sem número, na ordem', () => {
+    expect(SECTIONS.map((section) => section.id)).toEqual([
+      'identificacao',
+      'sistemas',
+      'rastreabilidade',
+      'clientes',
+      'modulos',
+      'detalhes',
+      'acesso',
+      'multiunidade',
+    ])
+    expect(SECTIONS.map((section) => section.number ?? '-')).toEqual(['-', '1', '2', '3', '4', '-', '5', '6'])
+  })
+
+  it('não tem mais as etapas de operação atual, projeto e documentos', () => {
+    for (const id of ['operacao', 'projeto', 'documentos']) expect(getSection(id)).toBeUndefined()
+    expect(ALL_FIELDS.some((field) => field.kind === 'documents')).toBe(false)
   })
 
   it('usa ids de campo e de pergunta únicos', () => {
@@ -16,55 +32,54 @@ describe('schema do formulário', () => {
     expect(ALL_FIELDS.some((field) => field.id.includes('@'))).toBe(false)
   })
 
-  it('numera as perguntas de acordo com a seção', () => {
+  it('numera as perguntas pela posição dentro da etapa', () => {
     for (const section of SECTIONS) {
-      for (const block of section.blocks) {
-        if (block.number) expect(block.number.startsWith(`${section.number}.`)).toBe(true)
-      }
+      const numbered = section.blocks.filter((block) => block.number !== undefined)
+      expect(numbered.map((block) => block.number)).toEqual(numbered.map((_, index) => `${section.number}.${index + 1}`))
     }
   })
 
-  it('pergunta unidade por unidade só volume, equipe e internet', () => {
+  it('mantém os ids das respostas quando a numeração exibida muda', () => {
+    const numberOf = (sectionId: string, blockId: string) =>
+      getSection(sectionId)?.blocks.find((block) => block.id === blockId)?.number
+    expect(numberOf('sistemas', '2.7')).toBe('1.7')
+    expect(numberOf('sistemas', '2.10')).toBe('1.10')
+    expect(numberOf('rastreabilidade', '3.9')).toBe('2.9')
+    expect(numberOf('acesso', '6.5')).toBe('5.5')
+    expect(numberOf('multiunidade', '7.3')).toBe('6.3')
+  })
+
+  it('pergunta unidade por unidade só a internet', () => {
     const perUnit = ALL_FIELDS.filter((field) => field.perUnit).map((field) => field.id)
-    expect(perUnit).toEqual(['1.2', '1.4', '2.7'])
+    expect(perUnit).toEqual(['2.7'])
   })
 
-  it('pergunta a equipe de cada unidade num total único de funcionários', () => {
-    const staff = getField('1.4')
-    expect(staff?.kind === 'numberGrid' && staff.items).toEqual([{ key: 'total', label: 'Funcionários' }])
+  it('pergunta o registro de ciclo e os postos de trabalho em matrizes', () => {
+    expect(getField('2.5.registro')?.kind).toBe('matrix')
+    expect(getField('2.6.postos')?.kind).toBe('matrix')
+    expect(getField('2.4.nomes')).toBeUndefined()
+    const other = getField('2.4')
+    expect(other?.kind === 'multi' && other.other).toBeTruthy()
   })
 
-  it('oferece como piloto cada unidade, todas juntas ou ainda a definir', () => {
-    const pilot = getField('8.2')
-    expect(pilot?.kind === 'single' && pilot.options.map((option) => option.label)).toEqual([
-      'Sim: São Luís',
-      'Sim: Teresina',
-      'Sim: Maracanaú',
-      'Sim: Ananindeua',
-      'Não, todas juntas',
-      'Ainda não definido',
-    ])
-  })
-
-  it('sugere na 8.1 primeiro o que incomoda na 2.2, sem repetir itens', () => {
-    const ranked = getField('8.1')
-    if (ranked?.kind !== 'ranked' || typeof ranked.suggestions !== 'function') throw new Error('8.1 sem sugestões dinâmicas')
-    const suggestions = ranked.suggestions({ '2.2.incomoda': ['digitacao', 'lentidao', 'outra:Etiquetas ilegíveis'] })
-
-    expect(suggestions.slice(0, 4)).toEqual([
-      'Digitação repetida entre sistemas',
-      'Lentidão',
-      'Etiquetas ilegíveis',
-      'Rastreabilidade até o cliente',
-    ])
-    expect(suggestions.filter((item) => item === 'Digitação repetida entre sistemas')).toHaveLength(1)
-    expect(ranked.suggestions({ '2.2.incomoda': ['outra:  '] })[0]).toBe('Rastreabilidade até o cliente')
-    expect(ranked.suggestions({})[0]).toBe('Rastreabilidade até o cliente')
-  })
-
-  it('tem a seção multiunidade entre acesso e projeto', () => {
-    expect(SECTIONS.map((section) => section.id).slice(6, 9)).toEqual(['acesso', 'multiunidade', 'projeto'])
+  it('tem a seção multiunidade depois de acesso, fechando o formulário', () => {
+    expect(SECTIONS.map((section) => section.id).slice(-2)).toEqual(['acesso', 'multiunidade'])
     expect(getSection('multiunidade')?.blocks).toHaveLength(7)
+  })
+
+  it('tem 25 perguntas de detalhe sem número, todas condicionadas à prioridade do módulo', () => {
+    const details = getSection('detalhes')!
+    expect(details.title).toBe('Detalhes dos módulos prioritários')
+    expect(details.blocks).toHaveLength(25)
+    expect(details.blocks.every((block) => block.number === undefined)).toBe(true)
+    expect(details.blocks.every((block) => block.fields.every((field) => field.when !== undefined))).toBe(true)
+    const moduleKeys = new Set(details.blocks.map((block) => block.id.split('.')[1]))
+    expect([...moduleKeys].sort()).toEqual(MODULES.map((module) => module.key).sort())
+  })
+
+  it('prefixa o título das perguntas de detalhe com o nome do módulo', () => {
+    const coleta = getSection('detalhes')!.blocks.find((block) => block.id === 'm.coleta.1')
+    expect(coleta?.title).toBe('Coleta e entrega: Como as coletas e rotas são programadas?')
   })
 
   it('tem opções com valores únicos em cada campo de escolha', () => {
@@ -79,7 +94,8 @@ describe('schema do formulário', () => {
   it('encontra seções e campos por id', () => {
     expect(getSection('sistemas')?.title).toBe('Sistemas e infraestrutura')
     expect(getSection('inexistente')).toBeUndefined()
-    expect(sectionIndex('operacao')).toBe(1)
+    expect(sectionIndex('sistemas')).toBe(1)
+    expect(sectionIndex('detalhes')).toBe(5)
     expect(getField('7.1')?.kind).toBe('matrix')
     expect(getField('nada')).toBeUndefined()
   })

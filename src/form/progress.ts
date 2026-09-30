@@ -24,6 +24,14 @@ export function visibleFields(block: Block, answers: Answers): readonly Field[] 
   return block.fields.filter((field) => isVisible(field, answers))
 }
 
+/**
+ * Perguntas com ao menos um campo visível. As demais (ex.: detalhes de um módulo
+ * que não está em prioridade Alta) não aparecem nem contam no progresso.
+ */
+export function visibleBlocks(section: Section, answers: Answers): readonly Block[] {
+  return section.blocks.filter((block) => visibleFields(block, answers).length > 0)
+}
+
 export function resolveOptions(field: Field, answers: Answers): readonly Option[] {
   if (field.kind !== 'single' && field.kind !== 'multi') return []
   return field.filterOptions ? field.filterOptions(field.options, answers) : field.options
@@ -74,8 +82,9 @@ function toProgress(done: number, total: number): Progress {
 }
 
 export function sectionProgress(section: Section, answers: Answers): Progress {
-  const done = section.blocks.reduce((sum, block) => sum + blockCompletion(block, answers), 0)
-  return toProgress(done, section.blocks.length)
+  const blocks = visibleBlocks(section, answers)
+  const done = blocks.reduce((sum, block) => sum + blockCompletion(block, answers), 0)
+  return toProgress(done, blocks.length)
 }
 
 export interface Counter {

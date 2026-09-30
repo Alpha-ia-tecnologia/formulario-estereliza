@@ -1,6 +1,6 @@
 import { DOCUMENT_STATUSES, getUnit, selectedUnits, unitKey, unitLabel } from './options'
 import { optionLabel } from './other'
-import { fieldCompletion, isRecord, visibleFields } from './progress'
+import { fieldCompletion, isRecord, visibleBlocks, visibleFields } from './progress'
 import { SECTIONS } from './schema'
 import type { AnswerValue, Answers, Field, Option } from './types'
 
@@ -114,12 +114,13 @@ function fieldEntries(field: Field, answers: Answers, showLabel: boolean): reado
   })
 }
 
+/** Resumo por etapa, só com as perguntas visíveis; etapas sem nenhuma ficam de fora. */
 export function summarize(answers: Answers): readonly SummarySection[] {
   return SECTIONS.map((section) => ({
     id: section.id,
     number: section.number,
     title: section.title,
-    blocks: section.blocks.map((block) => {
+    blocks: visibleBlocks(section, answers).map((block) => {
       const fields = visibleFields(block, answers)
       const entries = fields.flatMap((field) => fieldEntries(field, answers, fields.length > 1))
       return {
@@ -130,7 +131,7 @@ export function summarize(answers: Answers): readonly SummarySection[] {
         entries,
       }
     }),
-  }))
+  })).filter((section) => section.blocks.length > 0)
 }
 
 interface MarkdownInput {

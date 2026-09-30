@@ -5,23 +5,45 @@ describe('sanitizeAnswers', () => {
     const answers = {
       'ident.nome': 'Ana',
       'ident.unidades': ['sao-luis', 'teresina'],
-      '1.1': ['eto', 'vapor'],
-      '1.2@teresina': { itens: '800', ciclos: '40' },
-      '1.3': 'turnos',
-      '1.4@sao-luis': { total: '12' },
+      'ident.apoio': ['qualidade', 'informatica'],
+      'ident.apoio.quem': 'Ana, qualidade',
       '2.2.incomoda': ['digitacao', 'outra:Etiquetas'],
+      '2.4': ['contabil', 'outra:Folha'],
+      '2.5.registro': { vapor: 'arquivo', eto: 'impressao' },
+      '2.6.postos': { preparo: 'leitor', motorista: 'papel' },
       '2.7@teresina': 'instavel',
+      '2.9': ['bancos', 'whatsapp'],
+      '2.10': 'minutos',
+      '2.10.perda': 'nenhum',
       '3.4.quem': 'outra:Enfermeira',
-      '8.1': ['a', 'b', 'c'],
-      '8.2': 'teresina',
-      '8.4.projeto': 'ate-100k',
-      modulos: { cadastros: 'alta' },
+      '3.8': ['ona', 'iso-9001'],
+      '3.9': 'desde-ultimo',
+      '3.9.acoes': ['listar', 'avisar'],
+      modulos: { cadastros: 'alta', coleta: 'alta' },
+      'm.coleta.1': ['fixa', 'emergencia'],
       '7.1': { clientes: 'comum', usuarios: 'unidade' },
-      documentos: { formularios: 'depois' },
-      '8.5.decisor': { nome: 'Ana', contato: '(98) 99999-0000' },
       '6.3': '11-30',
+      '6.5': 'historico',
     }
     expect(sanitizeAnswers(answers)).toEqual(answers)
+  })
+
+  it('descarta respostas das etapas que saíram do formulário', () => {
+    expect(
+      sanitizeAnswers({
+        'ident.nome': 'Ana',
+        '1.1': ['eto'],
+        '1.2@teresina': { itens: '800' },
+        '1.4@sao-luis': { total: '12' },
+        '8.1': ['a'],
+        '8.3.data': '2026-12-01',
+        '8.5.decisor': { nome: 'Ana' },
+        documentos: { formularios: 'depois' },
+        '2.4.nomes': 'Contábil X',
+        '4.3.detalhes': 'x',
+        '4.5.obs': 'x',
+      }),
+    ).toEqual({ 'ident.nome': 'Ana' })
   })
 
   it('descarta chaves desconhecidas e unidades inexistentes', () => {
@@ -29,25 +51,32 @@ describe('sanitizeAnswers', () => {
   })
 
   it('descarta a chave sem unidade em perguntas por unidade e a chave com unidade nas demais', () => {
-    expect(sanitizeAnswers({ '2.7': 'estavel', '1.4': { total: '3' }, '1.3@sao-luis': 'turnos', '2.8@sao-luis': 'nuvem' })).toEqual({})
+    expect(sanitizeAnswers({ '2.7': 'estavel', '2.10@sao-luis': 'minutos', '2.8@sao-luis': 'nuvem' })).toEqual({})
   })
 
   it('descarta valores com tipo errado', () => {
-    expect(sanitizeAnswers({ '3.2': 'qr', '1.6': ['x'], '1.4@sao-luis': 'x', '6.3': ['ate-10'], modulos: ['alta'] })).toEqual({})
+    expect(
+      sanitizeAnswers({ '3.2': 'qr', '6.4.responsavel': ['x'], '2.7@sao-luis': ['estavel'], '6.3': ['ate-10'], modulos: ['alta'], '2.5.registro': 'arquivo' }),
+    ).toEqual({})
   })
 
   it('descarta opções que não existem no formulário', () => {
-    expect(sanitizeAnswers({ '1.1': ['eto', 'plasma'], '2.8': 'marte', '2.7@teresina': 'satelite', '6.3': '40' })).toEqual({ '1.1': ['eto'] })
+    expect(sanitizeAnswers({ '2.9': ['bancos', 'fax'], '2.8': 'marte', '2.7@teresina': 'satelite', '6.3': '40' })).toEqual({ '2.9': ['bancos'] })
   })
 
-  it('descarta itens e níveis inválidos nas matrizes e documentos', () => {
+  it('descarta opções repetidas na múltipla escolha', () => {
+    expect(sanitizeAnswers({ '3.3': ['quimico', 'quimico', 7, 'biologico'] })).toEqual({ '3.3': ['quimico', 'biologico'] })
+  })
+
+  it('descarta itens e níveis inválidos nas matrizes', () => {
     expect(
       sanitizeAnswers({
         modulos: { cadastros: 'alta', inventado: 'alta', portal: 'comum' },
         '7.1': { clientes: 'alta', kits: 'comum' },
-        documentos: { formularios: 'talvez' },
+        '2.5.registro': { vapor: 'papel', eto: 'manual' },
+        '2.6.postos': { preparo: 'impressao' },
       }),
-    ).toEqual({ modulos: { cadastros: 'alta' }, '7.1': { kits: 'comum' } })
+    ).toEqual({ modulos: { cadastros: 'alta' }, '7.1': { kits: 'comum' }, '2.5.registro': { eto: 'manual' } })
   })
 
   it('aceita "Outra" com texto só em campos que oferecem a opção', () => {
@@ -55,7 +84,7 @@ describe('sanitizeAnswers', () => {
       '4.4': ['item', 'outra:pacote mensal'],
       '4.5.periodicidade': 'outra:por ciclo',
     })
-    expect(sanitizeAnswers({ '2.8': 'outra:marte', '3.1': 'outra:x' })).toEqual({})
+    expect(sanitizeAnswers({ '2.8': 'outra:marte', '3.1': 'outra:x', '2.10': 'outra:x' })).toEqual({})
   })
 
   it('mantém só uma resposta "Outra" por campo e corta o texto', () => {
@@ -64,28 +93,15 @@ describe('sanitizeAnswers', () => {
     expect(sanitizeAnswers({ '4.5.periodicidade': `outra:${'y'.repeat(6000)}` })['4.5.periodicidade']).toHaveLength(5000)
   })
 
-  it('aceita só dígitos nas grades numéricas', () => {
-    expect(sanitizeAnswers({ '1.4@teresina': { total: '-2' }, '1.2@teresina': { itens: '1e9', ciclos: '40' } })).toEqual({
-      '1.2@teresina': { ciclos: '40' },
-    })
-  })
-
-  it('descarta áreas que saíram da grade de funcionários', () => {
-    expect(sanitizeAnswers({ '1.4@sao-luis': { recepcao: '3', preparo: '8', total: '11' } })).toEqual({ '1.4@sao-luis': { total: '11' } })
-  })
-
   it('corta textos muito longos', () => {
-    const result = sanitizeAnswers({ '1.6': 'a'.repeat(20000) })
-    expect((result['1.6'] as string).length).toBe(5000)
-  })
-
-  it('limita a lista ordenada ao número de posições', () => {
-    expect(sanitizeAnswers({ '8.1': ['a', 'b', 'c', 'd'] })).toEqual({ '8.1': ['a', 'b', 'c'] })
+    const result = sanitizeAnswers({ '6.4.responsavel': 'a'.repeat(20000) })
+    expect((result['6.4.responsavel'] as string).length).toBe(5000)
   })
 
   it('aceita apenas datas no formato AAAA-MM-DD', () => {
-    expect(sanitizeAnswers({ 'ident.data': '2026-09-28', '8.3.data': '28/09/2026' })).toEqual({ 'ident.data': '2026-09-28' })
-    expect(sanitizeAnswers({ 'ident.data': '2026-02-30', '8.3.data': '2026-13-01' })).toEqual({})
+    expect(sanitizeAnswers({ 'ident.data': '2026-09-28' })).toEqual({ 'ident.data': '2026-09-28' })
+    expect(sanitizeAnswers({ 'ident.data': '28/09/2026' })).toEqual({})
+    expect(sanitizeAnswers({ 'ident.data': '2026-02-30' })).toEqual({})
   })
 
   it('retorna vazio para entradas que não são objetos', () => {
@@ -94,6 +110,7 @@ describe('sanitizeAnswers', () => {
     expect(sanitizeAnswers([1, 2])).toEqual({})
   })
 })
+
 
 describe('parseExport', () => {
   const valid = {

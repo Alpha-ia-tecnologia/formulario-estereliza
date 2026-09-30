@@ -31,11 +31,11 @@ describe('fluxo completo', () => {
     await user.click(screen.getByRole('button', { name: /Começar agora/ }))
     expect(await screen.findByRole('heading', { level: 1, name: /Identificação/ })).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: /Respondido por/ }), 'Mariana Costa')
-    await user.click(screen.getByRole('button', { name: /Próxima etapa.*Operação atual/ }))
+    await user.click(screen.getByRole('button', { name: /Próxima etapa.*Sistemas e infraestrutura/ }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: /Operação atual/ })).toBeInTheDocument()
-    await user.click(screen.getByRole('checkbox', { name: 'Vapor' }))
-    await user.type(screen.getByRole('textbox', { name: 'Funcionários — Teresina' }), '14')
+    expect(await screen.findByRole('heading', { level: 1, name: /Sistemas e infraestrutura/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: 'Produção' }))
+    await user.click(within(laneOf(/^Teresina PI$/)[0]!).getByRole('radio', { name: 'Instável' }))
 
     await user.click(screen.getAllByRole('button', { name: 'Revisar e enviar' })[0]!)
     expect(await screen.findByRole('heading', { level: 1, name: 'Revise e envie' })).toBeInTheDocument()
@@ -43,8 +43,9 @@ describe('fluxo completo', () => {
       'São Luís — MA, Teresina — PI, Maracanaú — CE, Ananindeua — PA',
     )
     expect(screen.getByText('Mariana Costa')).toBeInTheDocument()
-    expect(screen.getByText('Vapor')).toBeInTheDocument()
-    expect(screen.getByText('Funcionários: 14 (pessoas)').closest('p')).toHaveTextContent('Teresina: Funcionários: 14 (pessoas)')
+    expect(screen.getByText('Produção')).toBeInTheDocument()
+    expect(screen.getByText('Instável').closest('p')).toHaveTextContent('Teresina: Instável')
+    expect(screen.queryByRole('region', { name: /Operação atual|Projeto|Documentos para anexar|Detalhes dos módulos/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Baixar pacote/ }))
     expect(await screen.findByText(/steriliza-requisitos-\d{4}-\d{2}-\d{2}\.zip/)).toBeInTheDocument()
@@ -67,6 +68,13 @@ describe('fluxo completo', () => {
     expect(screen.getByText(/respondido · atualizado em/)).toBeInTheDocument()
   })
 
+  it('apresenta as etapas e só as perguntas que todos veem na tela inicial', () => {
+    renderApp()
+    expect(screen.getByText(/São 8 etapas curtas, com salvamento automático\./)).toBeInTheDocument()
+    expect(screen.getByText('Responda 45 perguntas')).toBeInTheDocument()
+    expect(screen.getByText(/Detalhes aparecem só para os módulos que forem prioridade\./)).toBeInTheDocument()
+  })
+
   it('retoma na última etapa visitada', async () => {
     saveDraft({ ...createDraft(), lastSection: 'multiunidade' })
     const user = renderApp()
@@ -78,13 +86,8 @@ describe('fluxo completo', () => {
     const user = renderApp('#/etapa/identificacao')
     const units = screen.getByRole('group', { name: /Unidades que o novo sistema vai atender/ })
     await user.click(within(units).getByRole('checkbox', { name: 'Ananindeua — PA' }))
-    await user.click(screen.getByRole('button', { name: /Próxima etapa.*Operação atual/ }))
-
-    expect(await screen.findByRole('heading', { level: 1, name: /Operação atual/ })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Funcionários — Teresina' })).toBeInTheDocument()
-    expect(screen.queryByRole('textbox', { name: /Ananindeua/ })).not.toBeInTheDocument()
-
     await user.click(screen.getByRole('button', { name: /Próxima etapa.*Sistemas e infraestrutura/ }))
+
     expect(await screen.findByRole('heading', { level: 1, name: /Sistemas e infraestrutura/ })).toBeInTheDocument()
     expect(laneOf(/^Teresina PI$/).length).toBeGreaterThan(0)
     expect(screen.queryAllByRole('radiogroup', { name: /^Ananindeua PA$/ })).toHaveLength(0)
@@ -106,15 +109,32 @@ describe('fluxo completo', () => {
     await user.click(screen.getByRole('checkbox', { name: /Mostrar só as/ }))
     expect(screen.queryByText('Ana')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /7\.4 Um mesmo cliente/ }))
+    await user.click(screen.getByRole('button', { name: /6\.4 Um mesmo cliente/ }))
     expect(await screen.findByRole('heading', { level: 1, name: /Operação multiunidade/ })).toBeInTheDocument()
     await waitFor(() => expect(document.activeElement?.id).toBe('pergunta-7-4'))
+  })
+
+  it('conta como em branco na revisão só as perguntas visíveis', async () => {
+    // 45 perguntas visíveis; nome, data e unidades já estão respondidos.
+    renderApp('#/revisao', { 'ident.nome': 'Ana' })
+    expect(await screen.findByRole('checkbox', { name: 'Mostrar só as 42 em branco' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /Detalhes dos módulos prioritários/ })).not.toBeInTheDocument()
+  })
+
+  it('revisa os detalhes dos módulos em prioridade alta e volta direto para um deles', async () => {
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana', modulos: { coleta: 'alta' } })
+    const details = await screen.findByRole('region', { name: /Detalhes dos módulos prioritários/ })
+    expect(screen.getByRole('checkbox', { name: 'Mostrar só as 43 em branco' })).toBeInTheDocument()
+
+    await user.click(within(details).getByRole('button', { name: /Coleta e entrega: Como as coletas e rotas são programadas\?/ }))
+    expect(await screen.findByRole('heading', { level: 1, name: /Detalhes dos módulos prioritários/ })).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement?.id).toBe('pergunta-m-coleta-1'))
   })
 
   it('termina o relatório com a síntese, que acompanha as respostas e pode ser copiada', async () => {
     const user = renderApp('#/revisao', { 'ident.nome': 'Ana', 'ident.unidades': ['teresina'], '2.7@teresina': 'offline' })
     const synthesis = screen.getByRole('region', { name: 'Síntese' })
-    const lastSection = screen.getByRole('region', { name: /Documentos para anexar/ })
+    const lastSection = screen.getByRole('region', { name: /Operação multiunidade/ })
 
     expect(lastSection.compareDocumentPosition(synthesis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(synthesis).getByText(/para 1 unidade \(Teresina\), respondido por Ana/)).toBeInTheDocument()

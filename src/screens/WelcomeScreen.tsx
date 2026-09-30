@@ -7,7 +7,7 @@ import { useAttachmentStore } from '../draft/AttachmentsContext'
 import { type ImportedPackage, readPackage } from '../draft/package'
 import { createDraft, loadDraft, removeDraft, saveDraft } from '../draft/storage'
 import { UNITS, UNIT_IDS, selectedUnits } from '../form/options'
-import { overallProgress } from '../form/progress'
+import { overallProgress, visibleBlocks } from '../form/progress'
 import { ImportError } from '../form/sanitize'
 import { SECTIONS } from '../form/schema'
 
@@ -18,7 +18,8 @@ type WelcomeScreenProps = {
 
 type Pending = { readonly kind: 'restart' } | { readonly kind: 'import'; readonly data: ImportedPackage }
 
-const QUESTION_COUNT = SECTIONS.reduce((sum, section) => sum + section.blocks.length, 0)
+/** Perguntas que todos veem; as de detalhe só aparecem conforme as respostas. */
+const QUESTION_COUNT = SECTIONS.reduce((sum, section) => sum + visibleBlocks(section, {}).length, 0)
 const STEP_COUNT = SECTIONS.length
 const updatedFormat = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
@@ -90,8 +91,8 @@ export function WelcomeScreen({ onStart, onImported }: WelcomeScreenProps) {
           <p className="eyebrow eyebrow--light">Formulário de requisitos · Sistema multiunidade</p>
           <h1 className="welcome__title accent-title">Um sistema para todas as unidades.</h1>
           <p className="welcome__lead">
-            Conte como a Steriliza trabalha hoje. É um formulário só: onde as unidades operam de jeitos diferentes, a
-            pergunta vem unidade por unidade. São {STEP_COUNT} etapas curtas, com salvamento automático.
+            Conte como a Steriliza trabalha hoje. É um formulário só, para todas as unidades, com perguntas de clicar.
+            São {STEP_COUNT} etapas curtas, com salvamento automático.
           </p>
         </div>
       </section>
@@ -141,7 +142,7 @@ export function WelcomeScreen({ onStart, onImported }: WelcomeScreenProps) {
         <section className="how" aria-label="Como funciona">
           <ol className="how__steps">
             <li><strong>Identifique-se</strong><span>e confirme as unidades que o sistema vai atender.</span></li>
-            <li><strong>Responda {QUESTION_COUNT} perguntas</strong><span>Algumas pedem uma linha por unidade. O que não se aplicar pode ficar em branco.</span></li>
+            <li><strong>Responda {QUESTION_COUNT} perguntas</strong><span>Quase todas são de clicar. Detalhes aparecem só para os módulos que forem prioridade. O que não se aplicar pode ficar em branco.</span></li>
             <li><strong>Revise e baixe o pacote</strong><span>com respostas e anexos, pronto para enviar.</span></li>
           </ol>
           <div className="how__import">

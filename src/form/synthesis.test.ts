@@ -1,3 +1,4 @@
+import { MODULES } from './options'
 import { synthesisToMarkdown, synthesisToText, synthesize } from './synthesis'
 import type { Answers } from './types'
 
@@ -8,14 +9,6 @@ const FULL: Answers = {
   'ident.cargo': 'Gerente de operações',
   'ident.data': '2026-09-28',
   'ident.unidades': ['sao-luis', 'teresina'],
-  '1.1': ['eto', 'vapor'],
-  '1.2@sao-luis': { itens: '1200', ciclos: '90', clientes: '30' },
-  '1.2@teresina': { itens: '800' },
-  '1.3': 'outra:12 x 36',
-  '1.4@sao-luis': { total: '11' },
-  '1.4@teresina': { total: '5' },
-  '1.5': 'depende',
-  '1.6': 'Só São Luís tem óxido de etileno',
   '2.1': ['producao', 'financeiro'],
   '2.2.bem': ['relatorios'],
   '2.2.incomoda': ['lentidao', 'digitacao'],
@@ -24,29 +17,29 @@ const FULL: Answers = {
   '2.3.quais': ['financeiro'],
   '2.3.migrar': ['clientes', 'historico'],
   '2.3.historico': 'ate-5-anos',
-  '2.5': 'impressao',
-  '2.6': ['computadores', 'leitor'],
+  '2.4': ['contabil', 'outra:Folha X'],
+  '2.5.registro': { vapor: 'arquivo', eto: 'impressao', peroxido: 'manual' },
+  '2.6.postos': { preparo: 'leitor', motorista: 'papel', limpeza: 'papel' },
   '2.7@sao-luis': 'estavel',
   '2.7@teresina': 'offline',
+  '2.9': ['bancos', 'nota-fiscal'],
+  '2.10': 'minutos',
+  '2.10.perda': 'nenhum',
   '3.1': 'paciente',
   '3.1.sistemas': 'MV\nTasy',
   '3.4.quem': 'rt',
   '3.4.apos': ['integrador', 'biologico'],
   '3.7': '5-anos',
+  '3.8': ['ona', 'licenca'],
+  '3.9': 'desde-ultimo',
+  '3.9.acoes': ['listar', 'avisar'],
   '4.4': ['item', 'outra:pacote mensal'],
   modulos: { cadastros: 'alta', esterilizacao: 'alta', qualidade: 'alta', etiquetas: 'alta', faturamento: 'alta', portal: 'alta', relatorios: 'media' },
   '6.3': '11-30',
+  '6.5': 'historico',
   '7.1': { clientes: 'comum', kits: 'comum', insumos: 'unidade', pops: 'nao-sei' },
   '7.2': 'sim',
   '7.5': 'sim',
-  '8.1': ['Faturamento manual', '', 'Registros em papel'],
-  '8.2': 'teresina',
-  '8.3': 'sim',
-  '8.3.data': '2026-11-28',
-  '8.3.motivo': 'Auditoria ONA',
-  '8.4': 'fechado',
-  '8.4.projeto': '100-300k',
-  documentos: { formularios: 'depois', faturamento: 'anexado' },
 }
 
 const topic = (answers: Answers, id: string) => synthesize(answers, TODAY).topics.find((item) => item.id === id)?.lines ?? []
@@ -61,12 +54,19 @@ describe('síntese — abertura e números', () => {
     expect(headline).toMatch(/\d+% do formulário preenchido\.$/)
   })
 
-  it('soma os números das unidades e avisa quando só parte delas informou', () => {
+  it('mostra só preenchido, unidades, módulos em prioridade alta e usuários simultâneos', () => {
+    expect(synthesize(FULL, TODAY).metrics.map((item) => item.label)).toEqual([
+      'Preenchido',
+      'Unidades',
+      'Módulos em prioridade alta',
+      'Usuários simultâneos',
+    ])
     expect(metric('Unidades')?.value).toBe('2')
-    expect(metric('Funcionários')).toEqual({ label: 'Funcionários', value: '16' })
-    expect(metric('Kits e itens por mês')?.value).toBe('2.000')
-    expect(metric('Ciclos por mês')).toEqual({ label: 'Ciclos por mês', value: '90', detail: 'informado em 1 de 2 unidades' })
     expect(metric('Módulos em prioridade alta')).toEqual({ label: 'Módulos em prioridade alta', value: '6', detail: 'de 13' })
+  })
+
+  it('usa "Unidade" no singular quando só uma é atendida', () => {
+    expect(metric('Unidade', { 'ident.unidades': ['teresina'] })).toEqual({ label: 'Unidade', value: '1' })
   })
 
   it('mostra a faixa de usuários simultâneos, exceto quando não se sabe', () => {
@@ -81,13 +81,14 @@ describe('síntese — abertura e números', () => {
 })
 
 describe('síntese — temas', () => {
-  it('resume a operação comum à empresa, a equipe por unidade e as diferenças', () => {
-    expect(topic(FULL, 'operacao')).toEqual([
-      'Métodos: Óxido de etileno e Vapor',
-      'Horário: Outro: 12 x 36',
-      'Limpeza feita pela Steriliza: Depende do cliente',
-      'Equipe por unidade: São Luís 11, Teresina 5',
-      'Diferenças entre unidades: Só São Luís tem óxido de etileno',
+  it('não tem mais os temas de operação atual e de projeto', () => {
+    expect(synthesize(FULL, TODAY).topics.map((item) => item.id)).toEqual([
+      'sistemas',
+      'rastreabilidade',
+      'clientes',
+      'prioridades',
+      'acesso',
+      'multiunidade',
     ])
   })
 
@@ -104,10 +105,38 @@ describe('síntese — temas', () => {
         'Funciona bem hoje: Relatórios',
         'Mais incomoda hoje: Lentidão e Digitação repetida entre sistemas',
         'Digitado em mais de um sistema: Cadastro de clientes e Dados do ciclo',
-        'Exportação de ciclos: Só impressão',
-        'Equipamentos: Computadores e Leitor de código de barras',
+        'Outros sistemas: Contábil e Outro: Folha X',
       ]),
     )
+  })
+
+  it('resume como sai o registro de ciclo de cada equipamento', () => {
+    expect(topic(FULL, 'sistemas')).toEqual(
+      expect.arrayContaining([
+        'Registro de ciclo — arquivo: Autoclaves a vapor',
+        'Registro de ciclo — só impressão: Óxido de etileno',
+        'Registro de ciclo — anotado à mão: Peróxido de hidrogênio',
+      ]),
+    )
+  })
+
+  it('resume com o que cada posto de trabalho registra', () => {
+    expect(topic(FULL, 'sistemas')).toEqual(
+      expect.arrayContaining([
+        'Postos — computador com leitor: Preparo e embalagem',
+        'Postos — só papel: Limpeza (área suja) e Coleta e entrega (motorista)',
+      ]),
+    )
+  })
+
+  it('resume as integrações sem digitação e a tolerância a parada', () => {
+    expect(topic(FULL, 'sistemas')).toEqual(
+      expect.arrayContaining([
+        'Integrações sem digitação: Bancos (boleto, Pix, extrato) e Emissão de nota fiscal',
+        'Tolerância a parada: Não pode parar nem por minutos — Nenhum registro pode se perder',
+      ]),
+    )
+    expect(topic({ '2.10.perda': '1h' }, 'sistemas')).toEqual(['Tolerância a parada: Até 1 hora de trabalho'])
   })
 
   it('descreve a estratégia de troca dos sistemas e o que migrar', () => {
@@ -127,11 +156,13 @@ describe('síntese — temas', () => {
     expect(topic(answers, 'rastreabilidade')).toEqual(['Rastreabilidade até: Item individual'])
   })
 
-  it('resume rastreabilidade, liberação de lote e guarda dos registros', () => {
+  it('resume rastreabilidade, liberação de lote, guarda dos registros, normas e falhas de indicador', () => {
     expect(topic(FULL, 'rastreabilidade')).toEqual([
       'Rastreabilidade até: Paciente — MV; Tasy',
       'Liberação de lote: RT da unidade, após integrador e indicador biológico',
       'Guarda dos registros: 5 anos',
+      'Normas e acreditações: Acreditação ONA e Licença da vigilância sanitária',
+      'Falha de indicador ou teste: Todas as cargas do equipamento desde o último resultado aprovado — Listar clientes, setores e kits afetados e Avisar os clientes',
     ])
   })
 
@@ -144,8 +175,19 @@ describe('síntese — temas', () => {
     expect(topic(FULL, 'clientes')).toContain('Cobrança por: Item e Outra: pacote mensal')
   })
 
-  it('mostra os usuários ao mesmo tempo no pico em acesso e segurança', () => {
-    expect(topic(FULL, 'acesso')).toEqual(['Usuários ao mesmo tempo no pico: 11 a 30'])
+  it('resume o faturamento e o que os clientes públicos exigem', () => {
+    expect(topic({ '4.5.periodicidade': 'mensal', '4.5.documentos': ['medicao', 'nota-fiscal'] }, 'clientes')).toEqual([
+      'Faturamento: Mensal, com Medição e Nota fiscal',
+    ])
+    expect(topic({ '4.6': 'nao' }, 'clientes')).toEqual(['Clientes públicos não exigem formato específico'])
+    expect(topic({ '4.6': 'sim' }, 'clientes')).toEqual(['Clientes públicos exigem: relatório ou formato específico'])
+  })
+
+  it('mostra os usuários no pico e a correção de registros em acesso e segurança', () => {
+    expect(topic(FULL, 'acesso')).toEqual([
+      'Usuários ao mesmo tempo no pico: 11 a 30',
+      'Correção de registros: Permitir, guardando o valor antigo, quem, quando e o motivo',
+    ])
   })
 
   it('resume o que é comum e o que é de cada unidade', () => {
@@ -160,31 +202,9 @@ describe('síntese — temas', () => {
     expect(topic({ '7.2': 'nao' }, 'multiunidade')).toEqual(['Cada usuário atua em uma unidade só'])
   })
 
-  it('resume prioridades, problemas e prazo do projeto', () => {
+  it('resume as prioridades dos módulos', () => {
     expect(topic(FULL, 'prioridades')[0]).toMatch(/^Prioridade alta: Cadastros, Esterilização/)
-    expect(topic(FULL, 'projeto')).toEqual(
-      expect.arrayContaining(['Problemas mais urgentes: 1) Faturamento manual; 3) Registros em papel', 'Prazo: 28/11/2026 — Auditoria ONA']),
-    )
-  })
-
-  it('diz por onde começa a implantação', () => {
-    expect(topic(FULL, 'projeto')).toContain('Implantação: começa por Teresina')
-    expect(topic({ '8.2': 'sao-luis' }, 'projeto')).toEqual(['Implantação: começa por São Luís'])
-    expect(topic({ '8.2': 'todas' }, 'projeto')).toEqual(['Implantação: todas as unidades juntas'])
-    expect(topic({ '8.2': 'a-definir' }, 'projeto')).toEqual(['Implantação: unidade piloto ainda não definida'])
-    // Piloto escolhido e depois desmarcado na identificação: não vale mais.
-    expect(topic({ 'ident.unidades': ['teresina'], '8.2': 'sao-luis' }, 'projeto')).toEqual([])
-  })
-
-  it('junta o modelo de contratação com a faixa de orçamento visível', () => {
-    expect(topic(FULL, 'projeto')).toContain('Modelo de contratação: Projeto fechado — R$ 100 a 300 mil')
-    expect(topic({ '8.4': 'equipe' }, 'projeto')).toEqual(['Modelo de contratação: Equipe dedicada'])
-  })
-
-  it('usa só a faixa do modelo escolhido depois de trocar de modelo', () => {
-    const lines = topic({ '8.4': 'mensalidade', '8.4.projeto': 'ate-100k', '8.4.mensal': '5-15k' }, 'projeto')
-    expect(lines).toEqual(['Modelo de contratação: Mensalidade — R$ 5 a 15 mil por mês'])
-    expect(lines.join(' ')).not.toContain('Até R$ 100 mil')
+    expect(topic({ modulos: { portal: 'nao' } }, 'prioridades')).toEqual(['Não precisa: Portal do cliente'])
   })
 
   it('omite temas sem nenhuma resposta', () => {
@@ -199,27 +219,28 @@ describe('síntese — pontos de atenção', () => {
   it('destaca riscos e decisões em aberto antes das observações', () => {
     const tones = attention.map((point) => point.tone)
     expect(tones.indexOf('info')).toBeGreaterThan(tones.lastIndexOf('alert'))
+    expect(attention.filter((point) => point.tone === 'alert').map((point) => point.text)).toEqual([
+      'Precisa funcionar sem internet em Teresina: prever operação offline com sincronização.',
+      'A operação não pode parar nem por minutos: o sistema precisa de contingência e alta disponibilidade.',
+      '6 módulos em prioridade alta — vale escalonar a primeira entrega.',
+      'Definir se são comuns ou por unidade: Procedimentos da qualidade (POPs).',
+    ])
+  })
+
+  it('aponta registros em papel, integrações necessárias e lacunas', () => {
     expect(texts).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^Precisa funcionar sem internet em Teresina/),
-        expect.stringMatching(/^6 módulos em prioridade alta/),
-        'Prazo em 60 dias, em 28/11/2026 (Auditoria ONA).',
-        'Definir se são comuns ou por unidade: Procedimentos da qualidade (POPs).',
+        'Registro de ciclo só em papel (Óxido de etileno e Peróxido de hidrogênio): será digitado ou integrado com o fabricante.',
+        'Postos que ainda registram só em papel (Limpeza (área suja) e Coleta e entrega (motorista)): prever computador, leitor ou celular.',
+        'Rastreabilidade até o paciente depende de integração com os sistemas dos clientes (MV; Tasy).',
+        expect.stringMatching(/^Há material processado em outra unidade/),
+        expect.stringMatching(/perguntas? em branco/),
       ]),
     )
   })
 
-  it('aponta infraestrutura a providenciar e integrações necessárias', () => {
-    expect(texts).toEqual(
-      expect.arrayContaining([
-        'Os esterilizadores não exportam dados dos ciclos: registro digitado ou integração com o fabricante.',
-        'Equipamentos a providenciar: impressora de etiquetas.',
-        'Rastreabilidade até o paciente depende de integração com os sistemas dos clientes (MV; Tasy).',
-        expect.stringMatching(/^Há material processado em outra unidade/),
-        'Documentos a enviar depois: Formulários e planilhas usados hoje.',
-        expect.stringMatching(/perguntas? em branco/),
-      ]),
-    )
+  it('não tem mais avisos de prazo nem de documentos a enviar', () => {
+    expect(texts.join(' ')).not.toMatch(/Prazo|prazo|Documentos a enviar/)
   })
 
   it('avisa sobre internet instável em cada unidade', () => {
@@ -228,18 +249,30 @@ describe('síntese — pontos de atenção', () => {
     expect(attentionTexts(answers).join(' ')).not.toMatch(/sem internet/)
   })
 
-  it('avisa sobre a exportação de ciclos para a empresa toda, só quando não há arquivo', () => {
-    const exportPoint = 'Os esterilizadores não exportam dados dos ciclos: registro digitado ou integração com o fabricante.'
-    expect(attentionTexts({ '2.5': 'nao' })).toContain(exportPoint)
-    expect(attentionTexts({ '2.5': 'arquivo' })).not.toContain(exportPoint)
-    expect(attentionTexts({})).not.toContain(exportPoint)
+  it('alerta alta disponibilidade só quando a operação não pode parar nem por minutos', () => {
+    const point = 'A operação não pode parar nem por minutos: o sistema precisa de contingência e alta disponibilidade.'
+    expect(synthesize({ '2.10': 'minutos' }, TODAY).attention).toContainEqual({ tone: 'alert', text: point })
+    expect(attentionTexts({ '2.10': '1h' })).not.toContain(point)
+    expect(attentionTexts({})).not.toContain(point)
   })
 
-  it('lista os equipamentos de rastreabilidade que faltam só quando a 2.6 foi respondida', () => {
-    const equipmentPoint = (answers: Answers) => attentionTexts(answers).find((text) => text.startsWith('Equipamentos a providenciar'))
-    expect(equipmentPoint({})).toBeUndefined()
-    expect(equipmentPoint({ '2.6': ['computadores'] })).toBe('Equipamentos a providenciar: leitor de código de barras e impressora de etiquetas.')
-    expect(equipmentPoint({ '2.6': ['leitor', 'impressora'] })).toBeUndefined()
+  it('avisa sobre o registro de ciclo em papel só para os equipamentos com impressão ou anotação à mão', () => {
+    const cyclePoint = (answers: Answers) => attentionTexts(answers).find((text) => text.startsWith('Registro de ciclo só em papel'))
+    expect(cyclePoint({ '2.5.registro': { vapor: 'manual' } })).toBe(
+      'Registro de ciclo só em papel (Autoclaves a vapor): será digitado ou integrado com o fabricante.',
+    )
+    expect(cyclePoint({ '2.5.registro': { vapor: 'arquivo', eto: 'rede', seladoras: 'nao-tem' } })).toBeUndefined()
+    expect(cyclePoint({})).toBeUndefined()
+  })
+
+  it('lista os postos que registram só em papel', () => {
+    const paperPoint = (answers: Answers) => attentionTexts(answers).find((text) => text.startsWith('Postos que ainda registram'))
+    expect(synthesize({ '2.6.postos': { escritorio: 'papel' } }, TODAY).attention).toContainEqual({
+      tone: 'info',
+      text: 'Postos que ainda registram só em papel (Faturamento e escritório): prever computador, leitor ou celular.',
+    })
+    expect(paperPoint({ '2.6.postos': { preparo: 'leitor', motorista: 'movel' } })).toBeUndefined()
+    expect(paperPoint({})).toBeUndefined()
   })
 
   it('pede integração para rastrear até o paciente, mesmo sem os sistemas informados', () => {
@@ -258,9 +291,10 @@ describe('síntese — pontos de atenção', () => {
     expect(attentionTexts({ '7.6': 'depende' })).toContain('O CNPJ de faturamento varia por unidade: o sistema precisa aceitar os dois modelos.')
   })
 
-  it('avisa quando a data informada já passou', () => {
-    const past = synthesize({ '8.3': 'sim', '8.3.data': '2026-09-01' }, TODAY).attention.map((point) => point.text)
-    expect(past).toContain('A data informada (01/09/2026) já passou — confirme o prazo.')
+  it('aponta novas unidades previstas', () => {
+    expect(attentionTexts({ '7.7': 'proximo-ano', '7.7.onde': 'Caxias' })).toContain(
+      'Novas unidades previstas (Caxias): incluir uma unidade nova no sistema deve ser simples.',
+    )
   })
 
   it('cobra o nome de quem respondeu', () => {
@@ -270,19 +304,10 @@ describe('síntese — pontos de atenção', () => {
     })
   })
 
-  it('alerta prazos de até 90 dias e ignora os mais distantes', () => {
-    const hasDeadline = (date: string) =>
-      synthesize({ '8.3': 'sim', '8.3.data': date }, TODAY).attention.some((point) => point.text.startsWith('Prazo em 90 dias'))
-    expect(hasDeadline('2026-12-28')).toBe(true)
-    expect(hasDeadline('2026-12-29')).toBe(false)
-  })
-
-  it('pede a data quando há prazo sem data válida, sem contas com datas inexistentes', () => {
-    for (const date of [undefined, '2026-02-30', '2026-13-01']) {
-      const texts = synthesize({ '8.3': 'sim', ...(date ? { '8.3.data': date } : {}) }, TODAY).attention.map((point) => point.text)
-      expect(texts).toContain('Há prazo, mas falta a data — complete a pergunta 8.3.')
-      expect(texts.join(' ')).not.toMatch(/NaN|já passou/)
-    }
+  it('conta como em branco só as perguntas visíveis', () => {
+    expect(attentionTexts({ 'ident.nome': 'Ana' })).toContain('44 perguntas em branco; a etapa com mais lacunas é "Sistemas e infraestrutura".')
+    const allHigh = { 'ident.nome': 'Ana', modulos: Object.fromEntries(MODULES.map((module) => [module.key, 'alta'])) }
+    expect(attentionTexts(allHigh)).toContain('68 perguntas em branco; a etapa com mais lacunas é "Detalhes dos módulos prioritários".')
   })
 })
 
@@ -292,9 +317,8 @@ describe('síntese — texto livre', () => {
       {
         'ident.nome': 'Ana\n\n## Título falso',
         '4.4': ['outra:pacote\n- item falso'],
-        '8.3': 'sim',
-        '8.3.data': '2026-10-10',
-        '8.3.motivo': 'ONA\n# outro título',
+        '7.7': 'sem-data',
+        '7.7.onde': 'Caxias\n# outro título',
       },
       TODAY,
     )
@@ -302,6 +326,7 @@ describe('síntese — texto livre', () => {
 
     expect(synthesis.headline).toContain('respondido por Ana ## Título falso')
     expect(markdown).toContain('- Cobrança por: Outra: pacote - item falso')
+    expect(markdown).toContain('Novas unidades previstas (Caxias # outro título)')
     expect(markdown).not.toMatch(/^(## Título falso|- item falso|# outro título)/m)
   })
 })
@@ -310,16 +335,21 @@ describe('síntese — texto e markdown', () => {
   it('gera texto simples para copiar', () => {
     const text = synthesisToText(synthesize(FULL, TODAY))
     expect(text).toMatch(/^SÍNTESE\n\nLevantamento de requisitos/)
-    expect(text).toMatch(/Números\n- Preenchido: \d+%\n- Unidades: 2/)
+    expect(text).toMatch(/Números\n- Preenchido: \d+%\n- Unidades: 2\n- Módulos em prioridade alta: 6 \(de 13\)/)
     expect(text).toContain('Pontos de atenção\n- ')
-    expect(text).toContain('Operação\n- Métodos: Óxido de etileno e Vapor')
+    expect(text).toContain('Sistemas e infraestrutura\n- Sistemas em uso: Produção e Financeiro')
+  })
+
+  it('omite os pontos de atenção do texto quando não há nenhum', () => {
+    const text = synthesisToText({ headline: 'H', metrics: [], attention: [], topics: [] })
+    expect(text).not.toContain('Pontos de atenção')
   })
 
   it('gera a seção de markdown para o fim do resumo', () => {
     const markdown = synthesisToMarkdown(synthesize(FULL, TODAY))
     expect(markdown).toMatch(/^## Síntese\n/)
-    expect(markdown).toContain('- **Atenção:** Prazo em 60 dias')
+    expect(markdown).toContain('- **Atenção:** A operação não pode parar nem por minutos')
     expect(markdown).toContain('### Multiunidade')
-    expect(markdown).toContain('- Ciclos por mês: 90 (informado em 1 de 2 unidades)')
+    expect(markdown).toContain('- Módulos em prioridade alta: 6 (de 13)')
   })
 })

@@ -1,9 +1,13 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useCallback, useState } from 'react'
 import { App } from '../../App'
+import { AttachmentsProvider } from '../../draft/AttachmentsContext'
 import { type AttachmentStore, createMemoryStore } from '../../draft/attachments'
 import { createDraft, loadDraft, saveDraft } from '../../draft/storage'
-import type { Answers } from '../../form/types'
+import { DOCUMENTS } from '../../form/options'
+import type { AnswerUpdate, Answers, Block } from '../../form/types'
+import { QuestionBlock } from '../QuestionBlock'
 
 function openSection(sectionId: string, answers: Answers = {}, store: AttachmentStore = createMemoryStore()) {
   saveDraft({ ...createDraft(), answers: { ...createDraft().answers, ...answers } })
@@ -11,6 +15,91 @@ function openSection(sectionId: string, answers: Answers = {}, store: Attachment
   const user = userEvent.setup()
   render(<App attachmentStore={store} />)
   return user
+}
+
+/**
+ * Renderiza uma pergunta avulsa com estado próprio. Serve para os tipos de campo
+ * que o motor ainda aceita (grade numérica, lista ordenada, pessoa, documentos),
+ * mas que nenhuma etapa do formulário usa hoje.
+ */
+function renderBlock(block: Block, initial: Answers = {}, store: AttachmentStore = createMemoryStore()) {
+  const latest = { answers: initial }
+  function Harness() {
+    const [answers, setAnswers] = useState<Answers>(initial)
+    const onChange = useCallback((id: string, update: AnswerUpdate) => {
+      setAnswers((current) => {
+        const { [id]: previous, ...rest } = current
+        const value = typeof update === 'function' ? update(previous) : update
+        const next = value === undefined ? rest : { ...rest, [id]: value }
+        latest.answers = next
+        return next
+      })
+    }, [])
+    return <QuestionBlock block={block} answers={answers} onChange={onChange} />
+  }
+  const user = userEvent.setup()
+  render(
+    <AttachmentsProvider store={store}>
+      <Harness />
+    </AttachmentsProvider>,
+  )
+  return { user, answers: () => latest.answers }
+}
+
+const STAFF_BLOCK: Block = {
+  id: 'equipe',
+  title: 'Número de funcionários de cada unidade',
+  fields: [{ kind: 'numberGrid', id: 'equipe', perUnit: true, suffix: 'pessoas', items: [{ key: 'total', label: 'Funcionários' }] }],
+}
+
+const VOLUME_BLOCK: Block = {
+  id: 'volume',
+  title: 'Volume médio mensal de cada unidade',
+  fields: [{
+    kind: 'numberGrid', id: 'volume', perUnit: true, suffix: 'por mês', items: [
+      { key: 'itens', label: 'Kits e itens' },
+      { key: 'ciclos', label: 'Ciclos' },
+    ],
+  }],
+}
+
+const RANKED_BLOCK: Block = {
+  id: 'problemas',
+  title: 'Os três problemas mais urgentes que o sistema deve resolver',
+  fields: [{
+    kind: 'ranked', id: 'problemas', count: 3,
+    suggestions: ['Faturamento manual', 'Registros de ciclo em papel', 'Rastreabilidade até o cliente'],
+  }],
+}
+
+const DYNAMIC_RANKED_BLOCK: Block = {
+  id: 'dinamica',
+  title: 'Problemas sugeridos a partir de outra resposta',
+  fields: [{
+    kind: 'ranked', id: 'dinamica', count: 3,
+    suggestions: (answers) => [...(Array.isArray(answers['base']) ? answers['base'] : []), 'Padrão'],
+  }],
+}
+
+const PEOPLE_BLOCK: Block = {
+  id: 'pessoas',
+  title: 'Quem decide e quem será o ponto focal',
+  fields: [
+    { kind: 'person', id: 'decisor', label: 'Quem decide', canUseRespondent: true },
+    { kind: 'person', id: 'focal', label: 'Ponto focal', canUseRespondent: true },
+  ],
+}
+
+const REASON_BLOCK: Block = {
+  id: 'motivo',
+  title: 'Há prazo ou data importante?',
+  fields: [{ kind: 'text', id: 'motivo', label: 'O que acontece nessa data?', suggestions: ['Auditoria ONA', 'Início de contrato'] }],
+}
+
+const DOCUMENTS_BLOCK: Block = {
+  id: 'documentos',
+  title: 'Documentos para anexar',
+  fields: [{ kind: 'documents', id: 'documentos', items: DOCUMENTS }],
 }
 
 /** Store cujo add() só termina quando o teste libera, para simular gravações simultâneas. */
@@ -60,14 +149,14 @@ describe('perguntas por unidade', () => {
   })
 
   it('pergunta só uma vez o que vale para a empresa toda', () => {
-    openSection('operacao')
-    const methods = questionOf(/Métodos de esterilização oferecidos/)
-    expect(within(methods).getAllByRole('checkbox', { name: 'Vapor' })).toHaveLength(1)
-    expect(within(methods).queryByRole('button', { name: /Repetir/ })).not.toBeInTheDocument()
+    openSection('sistemas')
+    const systems = questionOf(/Sistemas usados hoje/)
+    expect(within(systems).getAllByRole('checkbox', { name: 'Produção' })).toHaveLength(1)
+    expect(within(systems).queryByRole('button', { name: /Repetir/ })).not.toBeInTheDocument()
   })
 
   it('guarda o total de funcionários de cada unidade, só com dígitos', async () => {
-    const user = openSection('operacao')
+    const { user, answers } = renderBlock(STAFF_BLOCK)
     await user.type(screen.getByRole('textbox', { name: 'Funcionários — São Luís' }), '1a2')
     await user.type(screen.getByRole('textbox', { name: 'Funcionários — Teresina' }), '5')
 
@@ -76,20 +165,20 @@ describe('perguntas por unidade', () => {
     expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Unidade', 'Funcionários'])
     expect(within(table).getByRole('rowheader', { name: 'Todas' }).closest('tr')).toHaveTextContent('Todas17')
     await waitFor(() => {
-      expect(savedAnswers()['1.4@sao-luis']).toEqual({ total: '12' })
-      expect(savedAnswers()['1.4@teresina']).toEqual({ total: '5' })
+      expect(answers()['equipe@sao-luis']).toEqual({ total: '12' })
+      expect(answers()['equipe@teresina']).toEqual({ total: '5' })
     })
   })
 
   it('guarda o volume de kits e itens de cada unidade', async () => {
-    const user = openSection('operacao')
+    const { user, answers } = renderBlock(VOLUME_BLOCK)
     await user.type(screen.getByRole('textbox', { name: 'Kits e itens — Maracanaú' }), '800')
-    await waitFor(() => expect(savedAnswers()['1.2@maracanau']).toEqual({ itens: '800' }))
+    await waitFor(() => expect(answers()['volume@maracanau']).toEqual({ itens: '800' }))
   })
 })
 
 describe('perguntas condicionais', () => {
-  it('oferece em "quais substituir" só os sistemas marcados na 2.1', async () => {
+  it('oferece em "quais substituir" só os sistemas marcados na primeira pergunta', async () => {
     const user = openSection('sistemas', { '2.1': ['financeiro', 'odu'] })
     expect(screen.queryByRole('group', { name: 'Quais devem ser substituídos?' })).not.toBeInTheDocument()
 
@@ -147,22 +236,19 @@ describe('perguntas condicionais', () => {
     await waitFor(() => expect(savedAnswers()['3.1.sistemas']).toBe('Tasy'))
   })
 
-  it('mostra a faixa de orçamento que combina com o modelo de contratação', async () => {
-    const user = openSection('projeto')
-    const project = { name: 'Faixa de orçamento do projeto' }
-    const monthly = { name: 'Faixa de orçamento por mês' }
-    expect(screen.queryByRole('radiogroup', project)).not.toBeInTheDocument()
-    expect(screen.queryByRole('radiogroup', monthly)).not.toBeInTheDocument()
+  it('pergunta quem pode completar as respostas só quando outra pessoa ajuda', async () => {
+    const user = openSection('identificacao')
+    const who = { name: 'Quem são (nome e contato)' }
+    const support = within(questionOf(/Em quais assuntos outra pessoa pode completar/))
+    expect(screen.queryByRole('textbox', who)).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('radio', { name: 'Projeto fechado' }))
-    await user.click(within(screen.getByRole('radiogroup', project)).getByRole('radio', { name: 'R$ 100 a 300 mil' }))
-    await waitFor(() => expect(savedAnswers()['8.4.projeto']).toBe('100-300k'))
-    expect(screen.queryByRole('radiogroup', monthly)).not.toBeInTheDocument()
+    await user.click(support.getByRole('checkbox', { name: 'Respondo tudo sozinho(a)' }))
+    expect(screen.queryByRole('textbox', who)).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('radio', { name: 'Mensalidade' }))
-    expect(screen.queryByRole('radiogroup', project)).not.toBeInTheDocument()
-    await user.click(within(screen.getByRole('radiogroup', monthly)).getByRole('radio', { name: 'Até R$ 5 mil por mês' }))
-    await waitFor(() => expect(savedAnswers()['8.4.mensal']).toBe('ate-5k'))
+    await user.click(support.getByRole('checkbox', { name: 'Informática' }))
+    await user.type(screen.getByRole('textbox', who), 'Rui, TI')
+    await waitFor(() => expect(savedAnswers()['ident.apoio.quem']).toBe('Rui, TI'))
+    expect(savedAnswers()['ident.apoio']).toEqual(['informatica', 'nenhum'])
   })
 })
 
@@ -208,56 +294,49 @@ describe('opção "Outra"', () => {
   })
 
   it('funciona em escolha única e sai quando outra opção é marcada', async () => {
-    const user = openSection('operacao')
-    const hours = within(questionOf(/Horário de funcionamento/))
-    await user.click(hours.getByRole('radio', { name: 'Outro' }))
-    await user.type(hours.getByRole('textbox', { name: /Qual horário/ }), '12 x 36')
-    await waitFor(() => expect(savedAnswers()['1.3']).toBe('outra:12 x 36'))
+    const user = openSection('rastreabilidade')
+    const release = within(questionOf(/Quem libera o lote/))
+    await user.click(release.getByRole('radio', { name: 'Outro' }))
+    await user.type(release.getByRole('textbox', { name: /Quem\?/ }), 'Enfermeira')
+    await waitFor(() => expect(savedAnswers()['3.4.quem']).toBe('outra:Enfermeira'))
 
-    await user.click(hours.getByRole('radio', { name: 'Turnos' }))
-    expect(hours.queryByRole('textbox', { name: /Qual horário/ })).not.toBeInTheDocument()
-    await waitFor(() => expect(savedAnswers()['1.3']).toBe('turnos'))
+    await user.click(release.getByRole('radio', { name: 'Operador' }))
+    expect(release.queryByRole('textbox', { name: /Quem\?/ })).not.toBeInTheDocument()
+    await waitFor(() => expect(savedAnswers()['3.4.quem']).toBe('operador'))
   })
 })
 
 describe('chips de sugestão', () => {
   it('em texto de várias linhas, cada chip entra e sai como uma linha', async () => {
-    const user = openSection('operacao')
-    const chips = within(questionOf(/Alguma unidade foge do padrão/))
-    await user.click(chips.getByRole('button', { name: 'Métodos diferentes em uma unidade' }))
-    await user.click(chips.getByRole('button', { name: 'Horário diferente em uma unidade' }))
-    expect(chips.getByRole('textbox')).toHaveValue('Métodos diferentes em uma unidade\nHorário diferente em uma unidade')
-    expect(chips.getByRole('button', { name: 'Horário diferente em uma unidade' })).toHaveAttribute('aria-pressed', 'true')
+    const user = openSection('clientes', { '4.6': 'sim' })
+    const chips = within(questionOf(/Clientes públicos exigem relatório/))
+    await user.click(chips.getByRole('button', { name: 'Relatório mensal por setor' }))
+    await user.click(chips.getByRole('button', { name: 'Planilha de medição própria' }))
+    expect(chips.getByRole('textbox')).toHaveValue('Relatório mensal por setor\nPlanilha de medição própria')
+    expect(chips.getByRole('button', { name: 'Planilha de medição própria' })).toHaveAttribute('aria-pressed', 'true')
 
-    await user.click(chips.getByRole('button', { name: 'Métodos diferentes em uma unidade' }))
-    expect(chips.getByRole('textbox')).toHaveValue('Horário diferente em uma unidade')
+    await user.click(chips.getByRole('button', { name: 'Relatório mensal por setor' }))
+    expect(chips.getByRole('textbox')).toHaveValue('Planilha de medição própria')
   })
 
   it('em texto de uma linha, o chip vira a resposta', async () => {
-    const user = openSection('projeto', { '8.3': 'sim' })
-    const deadline = within(questionOf(/Há prazo ou data importante/))
-    await user.click(deadline.getByRole('button', { name: 'Auditoria ONA' }))
-    expect(deadline.getByRole('textbox', { name: 'O que acontece nessa data?' })).toHaveValue('Auditoria ONA')
-    await user.click(deadline.getByRole('button', { name: 'Início de contrato' }))
-    expect(deadline.getByRole('textbox', { name: 'O que acontece nessa data?' })).toHaveValue('Início de contrato')
+    const { user } = renderBlock(REASON_BLOCK)
+    const reason = within(questionOf(/Há prazo ou data importante/))
+    await user.click(reason.getByRole('button', { name: 'Auditoria ONA' }))
+    expect(reason.getByRole('textbox')).toHaveValue('Auditoria ONA')
+    await user.click(reason.getByRole('button', { name: 'Início de contrato' }))
+    expect(reason.getByRole('textbox')).toHaveValue('Início de contrato')
   })
 
-  it('na lista ordenada, sugere primeiro o que foi marcado como incômodo na 2.2', () => {
-    openSection('projeto', { '2.2.incomoda': ['lentidao', 'digitacao', 'outra:Etiquetas ilegíveis'] })
-    const ranked = within(questionOf(/três problemas mais urgentes/))
+  it('na lista ordenada, as sugestões podem depender de outras respostas', () => {
+    renderBlock(DYNAMIC_RANKED_BLOCK, { base: ['Lentidão'] })
+    const ranked = within(questionOf(/Problemas sugeridos/))
     const chips = within(ranked.getByRole('group', { name: 'Sugestões de resposta' })).getAllByRole('button')
-
-    expect(chips.slice(0, 4).map((chip) => chip.textContent)).toEqual([
-      'Lentidão',
-      'Digitação repetida entre sistemas',
-      'Etiquetas ilegíveis',
-      'Rastreabilidade até o cliente',
-    ])
-    expect(chips.filter((chip) => chip.textContent === 'Digitação repetida entre sistemas')).toHaveLength(1)
+    expect(chips.map((chip) => chip.textContent)).toEqual(['Lentidão', 'Padrão'])
   })
 
   it('na lista ordenada, os chips ocupam a próxima posição vazia', async () => {
-    const user = openSection('projeto')
+    const { user } = renderBlock(RANKED_BLOCK)
     const ranked = within(questionOf(/três problemas mais urgentes/))
     await user.type(ranked.getByRole('textbox', { name: 'Problema 2' }), 'meu problema')
     await user.click(ranked.getByRole('button', { name: 'Faturamento manual' }))
@@ -289,33 +368,19 @@ describe('campos de texto', () => {
     expect(screen.getByText(/Confira o e-mail/)).toBeInTheDocument()
   })
 
-  it('pergunta por qual unidade a implantação começa', async () => {
-    const user = openSection('projeto')
-    const pilot = within(questionOf(/unidade piloto/))
-    expect(pilot.getAllByRole('radio').map((radio) => radio.closest('label')?.textContent)).toEqual([
-      'Sim: São Luís',
-      'Sim: Teresina',
-      'Sim: Maracanaú',
-      'Sim: Ananindeua',
-      'Não, todas juntas',
-      'Ainda não definido',
-    ])
-    await user.click(pilot.getByRole('radio', { name: 'Sim: Teresina' }))
-    await waitFor(() => expect(savedAnswers()['8.2']).toBe('teresina'))
-  })
-
   it('preenche "quem decide" com os dados de quem responde', async () => {
-    const user = openSection('projeto', { 'ident.nome': 'Ana', 'ident.email': 'ana@x.com' })
+    const { user, answers } = renderBlock(PEOPLE_BLOCK, { 'ident.nome': 'Ana', 'ident.email': 'ana@x.com' })
     const decisor = screen.getByRole('group', { name: 'Quem decide' })
     await user.click(within(decisor).getByRole('button', { name: /Sou eu/ }))
     expect(within(decisor).getByRole('textbox', { name: 'Nome' })).toHaveValue('Ana')
     expect(within(decisor).getByRole('textbox', { name: 'Contato' })).toHaveValue('ana@x.com')
+    await waitFor(() => expect(answers()['decisor']).toEqual({ nome: 'Ana', contato: 'ana@x.com' }))
   })
 
   it('guarda os três problemas na ordem', async () => {
-    const user = openSection('projeto')
+    const { user, answers } = renderBlock(RANKED_BLOCK)
     await user.type(screen.getByRole('textbox', { name: 'Problema 2' }), 'faturamento manual')
-    await waitFor(() => expect(savedAnswers()['8.1']).toEqual(['', 'faturamento manual', '']))
+    await waitFor(() => expect(answers()['problemas']).toEqual(['', 'faturamento manual', '']))
   })
 
   it('pergunta onde serão as novas unidades só quando há previsão', async () => {
@@ -354,25 +419,89 @@ describe('matrizes', () => {
     await waitFor(() => expect(savedAnswers()['7.1']).toEqual({ clientes: 'comum', insumos: 'unidade', liberacao: 'comum' }))
     expect(screen.getByText('sem resposta')).toHaveTextContent('8 sem resposta')
   })
+
+  it('registra como sai o registro de ciclo e com o que cada posto trabalha', async () => {
+    const user = openSection('sistemas')
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Autoclaves a vapor' })).getByRole('radio', { name: 'Só impressão' }))
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Coleta e entrega (motorista)' })).getByRole('radio', { name: 'Só papel' }))
+    await waitFor(() => {
+      expect(savedAnswers()['2.5.registro']).toEqual({ vapor: 'impressao' })
+      expect(savedAnswers()['2.6.postos']).toEqual({ motorista: 'papel' })
+    })
+  })
+})
+
+describe('detalhes dos módulos prioritários', () => {
+  it('avisa que não há perguntas quando nenhum módulo está em prioridade alta', () => {
+    openSection('detalhes', { modulos: { coleta: 'media' } })
+    expect(screen.getByRole('heading', { level: 1, name: /Detalhes dos módulos prioritários/ })).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma pergunta nesta etapa para as suas respostas. É só seguir.')).toBeInTheDocument()
+    expect(screen.queryAllByRole('region')).toEqual([])
+    expect(screen.getByText(/^Etapa 6 de 8/)).toHaveTextContent('0 de 0 respondidas')
+  })
+
+  it('mostra só as perguntas dos módulos em prioridade alta', async () => {
+    const user = openSection('detalhes', { modulos: { coleta: 'alta', portal: 'media' } })
+    expect(screen.queryByText(/Nenhuma pergunta nesta etapa/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('region').map((region) => region.querySelector('h2')?.textContent)).toEqual([
+      'Coleta e entrega: Como as coletas e rotas são programadas?',
+      'Coleta e entrega: O que o protocolo de coleta e entrega precisa registrar?',
+    ])
+    expect(screen.queryByRole('region', { name: /^Portal do cliente:/ })).not.toBeInTheDocument()
+
+    const routes = within(questionOf(/^Coleta e entrega: Como as coletas e rotas são programadas\?/))
+    await user.click(routes.getByRole('checkbox', { name: 'Coleta extra de emergência' }))
+    await waitFor(() => expect(savedAnswers()['m.coleta.1']).toEqual(['emergencia']))
+    expect(screen.getByText(/^Etapa 6 de 8/)).toHaveTextContent('1 de 2 respondidas')
+  })
+
+  it('passa a mostrar os detalhes de um módulo marcado como alta na etapa anterior', async () => {
+    const user = openSection('modulos')
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Faturamento' })).getByRole('radio', { name: 'Alta' }))
+    await user.click(screen.getByRole('button', { name: /Próxima etapa.*Detalhes dos módulos prioritários/ }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: /Detalhes dos módulos prioritários/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('region').map((region) => region.querySelector('h2')?.textContent)).toEqual([
+      'Faturamento: Como o preço é formado?',
+      'Faturamento: Como a medição do mês é montada e conferida?',
+      'Faturamento: Como são emitidas a nota e a cobrança?',
+    ])
+  })
+})
+
+describe('numeração', () => {
+  it('numera as etapas e as perguntas pela posição, sem mudar os ids das respostas', async () => {
+    const user = openSection('sistemas')
+    expect(screen.getByRole('heading', { level: 1, name: '1. Sistemas e infraestrutura' })).toBeInTheDocument()
+    expect(questionOf(/^1\.7\s*Internet em cada unidade$/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Nuvem' }))
+    await waitFor(() => expect(savedAnswers()['2.8']).toBe('nuvem'))
+  })
+
+  it('mostra a etapa de detalhes sem número', () => {
+    openSection('detalhes')
+    expect(screen.getByRole('heading', { level: 1, name: 'Detalhes dos módulos prioritários' })).toBeInTheDocument()
+  })
 })
 
 describe('documentos', () => {
   it('anexa e remove arquivos, atualizando o status', async () => {
-    const user = openSection('documentos')
+    const { user, answers } = renderBlock(DOCUMENTS_BLOCK)
     const row = rowOf('Lista de equipamentos por unidade (fabricante, modelo, capacidade)')
 
     await user.upload(fileInputOf(row), new File(['autoclave'], 'equipamentos.csv', { type: 'text/csv' }))
     expect(await within(row).findByText('equipamentos.csv')).toBeInTheDocument()
-    await waitFor(() => expect(savedAnswers()['documentos']).toEqual({ equipamentos: 'anexado' }))
+    await waitFor(() => expect(answers()['documentos']).toEqual({ equipamentos: 'anexado' }))
 
     await user.click(within(row).getByRole('button', { name: 'Remover equipamentos.csv' }))
     await waitFor(() => expect(within(row).queryByText('equipamentos.csv')).not.toBeInTheDocument())
-    await waitFor(() => expect(savedAnswers()['documentos']).toBeUndefined())
+    await waitFor(() => expect(answers()['documentos']).toBeUndefined())
   })
 
   it('mantém o status de dois documentos anexados ao mesmo tempo', async () => {
     const { store, gates } = createGatedStore()
-    const user = openSection('documentos', {}, store)
+    const { user, answers } = renderBlock(DOCUMENTS_BLOCK, {}, store)
     const forms = rowOf('Formulários e planilhas usados hoje')
     const equipment = rowOf('Lista de equipamentos por unidade (fabricante, modelo, capacidade)')
 
@@ -385,23 +514,23 @@ describe('documentos', () => {
     act(() => gates[1]!())
     expect(await within(equipment).findByText('b.csv')).toBeInTheDocument()
 
-    await waitFor(() => expect(savedAnswers()['documentos']).toEqual({ formularios: 'anexado', equipamentos: 'anexado' }))
+    await waitFor(() => expect(answers()['documentos']).toEqual({ formularios: 'anexado', equipamentos: 'anexado' }))
   })
 
   it('limpa o status quando dois arquivos do mesmo documento são removidos em sequência', async () => {
     const store = createMemoryStore()
     await store.add({ docKey: 'formularios', name: '1.pdf', blob: new Blob(['1']) })
     await store.add({ docKey: 'formularios', name: '2.pdf', blob: new Blob(['2']) })
-    const user = openSection('documentos', { documentos: { formularios: 'anexado' } }, store)
+    const { user, answers } = renderBlock(DOCUMENTS_BLOCK, { documentos: { formularios: 'anexado' } }, store)
     const forms = within(rowOf('Formulários e planilhas usados hoje'))
 
     await user.click(await forms.findByRole('button', { name: 'Remover 1.pdf' }))
     await user.click(await forms.findByRole('button', { name: 'Remover 2.pdf' }))
-    await waitFor(() => expect(savedAnswers()['documentos']).toBeUndefined())
+    await waitFor(() => expect(answers()['documentos']).toBeUndefined())
   })
 
   it('marca um documento para envio posterior e desmarca', async () => {
-    const user = openSection('documentos')
+    const { user } = renderBlock(DOCUMENTS_BLOCK)
     const row = within(rowOf('Formulários e planilhas usados hoje'))
     await user.click(row.getByRole('button', { name: 'Envio depois' }))
     expect(row.getByRole('button', { name: 'Envio depois' })).toHaveAttribute('aria-pressed', 'true')
@@ -410,12 +539,12 @@ describe('documentos', () => {
   })
 
   it('remove o status "anexado" quando o arquivo não existe mais', async () => {
-    openSection('documentos', { documentos: { formularios: 'anexado', faturamento: 'depois' } })
-    await waitFor(() => expect(savedAnswers()['documentos']).toEqual({ faturamento: 'depois' }))
+    const { answers } = renderBlock(DOCUMENTS_BLOCK, { documentos: { formularios: 'anexado', faturamento: 'depois' } })
+    await waitFor(() => expect(answers()['documentos']).toEqual({ faturamento: 'depois' }))
   })
 
   it('recusa arquivos acima do limite', async () => {
-    const user = openSection('documentos')
+    const { user } = renderBlock(DOCUMENTS_BLOCK)
     const big = new File(['x'], 'enorme.pdf', { type: 'application/pdf' })
     Object.defineProperty(big, 'size', { value: 30 * 1024 * 1024 })
     await user.upload(fileInputOf(rowOf('Formulários e planilhas usados hoje')), big)
@@ -437,8 +566,14 @@ describe('navegação', () => {
   })
 
   it('volta para a etapa anterior', async () => {
+    const user = openSection('rastreabilidade')
+    await user.click(screen.getByRole('button', { name: 'Anterior' }))
+    expect(await screen.findByRole('heading', { level: 1, name: /Sistemas e infraestrutura/ })).toBeInTheDocument()
+  })
+
+  it('volta da primeira etapa numerada para a identificação', async () => {
     const user = openSection('sistemas')
     await user.click(screen.getByRole('button', { name: 'Anterior' }))
-    expect(await screen.findByRole('heading', { level: 1, name: /Operação atual/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /Identificação/ })).toBeInTheDocument()
   })
 })

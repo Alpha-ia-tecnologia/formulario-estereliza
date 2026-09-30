@@ -1,7 +1,6 @@
-import { formatDateBR, parseIsoDate } from './format'
-import { DOCUMENTS, HIGH_PRIORITY_SOFT_LIMIT, SHARED_ITEMS } from './options'
-import { blockCompletion, missingRequired } from './progress'
-import { cityOf, joinPt, listOf, recordOf, textLines, textOf, unitsWhere } from './read'
+import { CYCLE_EQUIPMENT, HIGH_PRIORITY_SOFT_LIMIT, SHARED_ITEMS, WORKSTATIONS } from './options'
+import { blockCompletion, missingRequired, visibleBlocks } from './progress'
+import { cityOf, joinPt, recordOf, textLines, textOf, unitsWhere } from './read'
 import { SECTIONS } from './schema'
 import type { Answers, UnitId } from './types'
 
@@ -17,10 +16,6 @@ export interface AttentionPoint {
 }
 
 type Rule = (answers: Answers, today: Date) => AttentionPoint | null
-
-/** Prazos até este número de dias entram como alerta. */
-export const DEADLINE_WARNING_DAYS = 90
-const DAY_MS = 24 * 60 * 60 * 1000
 
 const alert = (text: string): AttentionPoint => ({ tone: 'alert', text })
 const info = (text: string): AttentionPoint => ({ tone: 'info', text })
@@ -44,42 +39,28 @@ const tooManyHigh: Rule = (answers) => {
   return high > HIGH_PRIORITY_SOFT_LIMIT ? alert(`${high} módulos em prioridade alta — vale escalonar a primeira entrega.`) : null
 }
 
-const deadline: Rule = (answers, today) => {
-  if (answers['8.3'] !== 'sim') return null
-  const date = textOf(answers, '8.3.data')
-  const target = parseIsoDate(date)
-  if (!target) return alert('Há prazo, mas falta a data — complete a pergunta 8.3.')
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const days = Math.round((target.getTime() - start.getTime()) / DAY_MS)
-  if (days < 0) return alert(`A data informada (${formatDateBR(date)}) já passou — confirme o prazo.`)
-  if (days > DEADLINE_WARNING_DAYS) return null
-  const reason = textOf(answers, '8.3.motivo')
-  return alert(`Prazo em ${days} ${days === 1 ? 'dia' : 'dias'}, em ${formatDateBR(date)}${reason ? ` (${reason})` : ''}.`)
-}
-
 const undecidedSharing: Rule = (answers) => {
   const record = recordOf(answers, '7.1')
   const items = SHARED_ITEMS.filter((item) => record[item.key] === 'nao-sei').map((item) => item.label)
   return items.length > 0 ? alert(`Definir se são comuns ou por unidade: ${joinPt(items)}.`) : null
 }
 
-const cycleExport: Rule = (answers) =>
-  answers['2.5'] === 'impressao' || answers['2.5'] === 'nao'
-    ? info('Os esterilizadores não exportam dados dos ciclos: registro digitado ou integração com o fabricante.')
+const cycleExport: Rule = (answers) => {
+  const record = recordOf(answers, '2.5.registro')
+  const onPaper = CYCLE_EQUIPMENT.filter((item) => record[item.key] === 'impressao' || record[item.key] === 'manual').map((item) => item.label)
+  return onPaper.length > 0
+    ? info(`Registro de ciclo só em papel (${joinPt(onPaper)}): será digitado ou integrado com o fabricante.`)
     : null
-
-/** Equipamentos que a rastreabilidade por etiqueta pressupõe. */
-const TRACEABILITY_EQUIPMENT = [
-  { value: 'leitor', label: 'leitor de código de barras' },
-  { value: 'impressora', label: 'impressora de etiquetas' },
-] as const
-
-const equipment: Rule = (answers) => {
-  const available = listOf(answers, '2.6')
-  if (available.length === 0) return null
-  const missing = TRACEABILITY_EQUIPMENT.filter(({ value }) => !available.includes(value)).map(({ label }) => label)
-  return missing.length > 0 ? info(`Equipamentos a providenciar: ${joinPt(missing)}.`) : null
 }
+
+const paperWorkstations: Rule = (answers) => {
+  const record = recordOf(answers, '2.6.postos')
+  const onPaper = WORKSTATIONS.filter((item) => record[item.key] === 'papel').map((item) => item.label)
+  return onPaper.length > 0 ? info(`Postos que ainda registram só em papel (${joinPt(onPaper)}): prever computador, leitor ou celular.`) : null
+}
+
+const availability: Rule = (answers) =>
+  answers['2.10'] === 'minutos' ? alert('A operação não pode parar nem por minutos: o sistema precisa de contingência e alta disponibilidade.') : null
 
 const patientTrace: Rule = (answers) => {
   if (answers['3.1'] !== 'paciente') return null
@@ -106,16 +87,10 @@ const newUnits: Rule = (answers) => {
   return info(`Novas unidades previstas${where ? ` (${where})` : ''}: incluir uma unidade nova no sistema deve ser simples.`)
 }
 
-const documentsLater: Rule = (answers) => {
-  const record = recordOf(answers, 'documentos')
-  const later = DOCUMENTS.filter((doc) => record[doc.key] === 'depois').map((doc) => doc.label)
-  return later.length > 0 ? info(`Documentos a enviar depois: ${joinPt(later)}.`) : null
-}
-
 const blanks: Rule = (answers) => {
   const perSection = SECTIONS.map((section) => ({
     title: section.title,
-    blank: section.blocks.filter((block) => blockCompletion(block, answers) === 0).length,
+    blank: visibleBlocks(section, answers).filter((block) => blockCompletion(block, answers) === 0).length,
   }))
   const total = perSection.reduce((sum, section) => sum + section.blank, 0)
   if (total === 0) return null
@@ -128,17 +103,16 @@ const RULES: readonly Rule[] = [
   missingRespondent,
   offline,
   unstable,
+  availability,
   tooManyHigh,
-  deadline,
   undecidedSharing,
   cycleExport,
-  equipment,
+  paperWorkstations,
   patientTrace,
   crossUnitMaterial,
   sharedClients,
   billingEntity,
   newUnits,
-  documentsLater,
   blanks,
 ]
 

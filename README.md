@@ -2,8 +2,9 @@
 
 Versão digital do `Formulário de requisitos.docx`, reestruturada para um **sistema multiunidade**: a Steriliza responde
 um formulário só, que cobre todas as unidades (São Luís, Teresina, Maracanaú e Ananindeua). Como as unidades operam
-igual, cada pergunta é respondida uma vez para a empresa; só volume, equipe e internet vêm unidade por unidade, e
-exceções cabem na 1.6. No fim, a pessoa revisa e envia as respostas ao servidor
+igual, cada pergunta é respondida uma vez para a empresa; só a internet vem unidade por unidade. Quase tudo é de
+clicar, e o detalhamento de cada módulo só aparece se ele for prioridade Alta. No fim, a pessoa revisa e envia as
+respostas ao servidor
 do projeto, que as guarda no PostgreSQL — ou, sem servidor, baixa um pacote `.zip` para mandar por e-mail. O visual
 segue o site [steriliza.com.br](https://steriliza.com.br/): Montserrat, verde-água `#4ab39d`, azul-marinho `#33526b`,
 botões em pílula e o logo de 2025.
@@ -12,43 +13,44 @@ botões em pílula e o logo de 2025.
 
 | Etapa | Conteúdo |
 |---|---|
-| Identificação | Quem responde, onde atua e **quais unidades o sistema vai atender** (todas vêm marcadas) |
-| 1. Operação atual | Métodos, horário e limpeza da empresa; **volume e equipe por unidade**; exceções à regra (1.6) |
-| 2. Sistemas e infraestrutura | Sistemas, o que funciona e o que incomoda, substituir ou integrar e o que migrar, esterilizadores, equipamentos, hospedagem; **internet por unidade** |
-| 3. Rastreabilidade e qualidade | Rastreabilidade (e sistemas dos hospitais, se chega ao paciente), identificação, indicadores, liberação de lote, não conformidades, auditorias, guarda dos registros |
-| 4. Clientes, logística e faturamento | Igual ao documento original, com opções de toque na 4.3 e 4.5 |
-| 5. Módulos e prioridades | Matriz de prioridade dos 13 módulos — é ela que define a primeira entrega |
-| 6. Acesso e segurança | Perfis, assinatura, usuários ao mesmo tempo (faixas), LGPD |
-| 7. Operação multiunidade | **Nova**: o que é comum a todas × de cada unidade (cadastros e configurações), usuários em mais de uma unidade, quem vê tudo, clientes e material entre unidades, CNPJ, novas unidades |
-| 8. Projeto | Problemas mais urgentes, unidade piloto, prazo, modelo e faixa de orçamento, quem decide, sucesso em 6 meses |
-| 9. Documentos para anexar | Antiga seção 8 |
+| Identificação | Quem responde, onde atua, **quais unidades o sistema vai atender** (todas vêm marcadas) e quem pode completar cada assunto |
+| 1. Sistemas e infraestrutura | Sistemas, o que funciona e o que incomoda, substituir ou integrar e o que migrar, como sai o registro de ciclo de cada equipamento, com o que cada posto registra, integrações, tolerância a parada, hospedagem; **internet por unidade** |
+| 2. Rastreabilidade e qualidade | Rastreabilidade (e sistemas dos hospitais, se chega ao paciente), identificação, indicadores, liberação de lote, não conformidades, auditorias, guarda dos registros, normas e acreditações, o que acontece quando um indicador falha |
+| 3. Clientes, logística e faturamento | Tipos de cliente, coleta e entrega, pedido de coleta, base e periodicidade de cobrança, clientes públicos |
+| 4. Módulos e prioridades | Matriz de prioridade dos 13 módulos — é ela que define a primeira entrega |
+| Detalhes dos módulos prioritários | **Só as perguntas dos módulos em prioridade Alta** (2 a 3 por módulo); sem nenhum em Alta, a etapa fica vazia |
+| 5. Acesso e segurança | Perfis, assinatura, usuários ao mesmo tempo (faixas), LGPD, correção de registros já salvos |
+| 6. Operação multiunidade | O que é comum a todas × de cada unidade (cadastros e configurações), usuários em mais de uma unidade, quem vê tudo, clientes e material entre unidades, CNPJ, novas unidades |
+
+A numeração exibida vem da posição (`numberSections` em `src/form/schema.ts`); os **ids das respostas são estáveis**
+e não seguem a numeração — ex.: a pergunta exibida como 1.7 (internet) é gravada como `2.7@<unidade>`. Assim, tirar ou
+incluir uma etapa não muda o significado do que já foi respondido. As etapas Operação atual, Projeto e Documentos
+saíram na versão atual; o motor ainda suporta anexos (`kind: 'documents'`), só não há etapa que os peça.
 
 ## O que muda em relação ao .docx
 
 - **Um formulário para a empresa**, com salvamento automático no navegador: dá para parar e continuar depois.
-- **Por unidade, só o que é medida do local**: volume (1.2) e equipe (1.4) em tabela com a linha "Todas" somando a
-  empresa, e internet (2.7) com o atalho "Repetir a resposta nas demais unidades". Desmarcar uma unidade na
-  identificação tira as linhas dela (e a tira das opções de unidade piloto).
-- **Perguntas condicionais**: o que é digitado em dobro (2.2) só se "Digitação repetida" for marcada; "quais
-  substituir", "o que migrar" e "quanto histórico" (2.3) conforme a estratégia; sistemas dos hospitais (3.1) quando a
-  rastreabilidade chega ao paciente; faixa de orçamento por projeto ou por mês conforme o modelo (8.4); detalhes na
-  4.6, 7.4, 7.5 e 7.7; data e motivo na 8.3.
-- **Escolhas no lugar de texto livre** onde as respostas se repetem (2.2, 3.4, 3.5, 3.6, 3.7, 6.3, 8.2, 8.4), para
-  comparar e consultar no banco; texto livre fica para o que é realmente aberto.
+- **Por unidade, só a internet**, com o atalho "Repetir a resposta nas demais unidades". Desmarcar uma unidade na
+  identificação tira a linha dela.
+- **Perguntas condicionais**: o que é digitado em dobro só se "Digitação repetida" for marcada; "quais substituir",
+  "o que migrar" e "quanto histórico" conforme a estratégia; sistemas dos hospitais quando a rastreabilidade chega ao
+  paciente; detalhes de clientes públicos, clientes e material entre unidades e novas unidades conforme a resposta.
+- **Detalhes só onde importa**: uma etapa própria mostra 2 a 3 perguntas de cada módulo marcado como prioridade Alta
+  (regras, exceções, relatórios). Perguntas sem nenhum campo visível não aparecem nem contam no progresso.
+- **Escolhas no lugar de texto livre** onde as respostas se repetem, para comparar e consultar no banco; texto livre
+  fica para o que é realmente aberto.
 - **Sugestões de resposta**: as perguntas abertas têm chips com respostas comuns — tocar preenche, tocar de novo desfaz;
-  em texto de várias linhas cada chip vira uma linha, e na lista de problemas (8.1) ocupa a próxima posição vazia.
+  em texto de várias linhas cada chip vira uma linha.
 - **Opção "Outra"**: todo campo de escolha em que a lista pode não bastar tem "Outra/Outro" com um campo "Qual?";
   o texto fica gravado junto da escolha, como `outra:<texto>`.
 - **Transições**: a etapa antiga sai e a nova entra no sentido da navegação (View Transitions API, com fallback);
   marcar opções, concluir etapas e abrir linhas por unidade têm micro-animações; tudo respeita "reduzir movimento".
-- **Atalhos**: a 8.1 sugere primeiro o que foi marcado como incômodo na 2.2; a 8.5 tem "Sou eu"; o telefone ganha máscara.
-- **Matrizes** em controle segmentado (prioridades na seção 5, comum/por unidade na 7.1), com contagem por nível.
-- **Anexos (seção 9)** direto no formulário (arrastar e soltar), ou "Envio depois" / "Não temos".
+- **Matrizes** em controle segmentado (registro de ciclo, postos de trabalho, prioridades, comum/por unidade), com
+  contagem por nível; com 5 ou mais níveis, as opções quebram em linhas embaixo do nome.
 - **Revisão** com filtro das perguntas em branco e salto direto para qualquer pergunta.
 - **Síntese no fim do relatório**, gerada das respostas (regras em `src/form/synthesis.ts` e `attention.ts`, sem
-  serviço externo): abertura com quem respondeu e o percentual preenchido, números somados das unidades, pontos de
-  atenção (operação offline, prazo próximo, decisões em aberto, equipamentos a providenciar, lacunas) e resumo por tema,
-  com as respostas agrupadas por unidade. Atualiza ao vivo, tem "Copiar síntese" e sai no fim do `resumo.md` e no
+  serviço externo): abertura com quem respondeu e o percentual preenchido, números-chave, pontos de atenção (operação
+  offline ou que não pode parar, decisões em aberto, registros ainda em papel, lacunas) e resumo por tema. Atualiza ao vivo, tem "Copiar síntese" e sai no fim do `resumo.md` e no
   campo `sintese` do `respostas.json`.
 - **Envio ao servidor**: quando o formulário é servido pelo `npm run server` (ou `VITE_API_URL` aponta para ele), o
   painel da revisão ganha "Enviar respostas" e devolve um número de protocolo; cada envio vira uma linha no PostgreSQL.
@@ -91,10 +93,10 @@ direto em SQL — as chaves são os ids das perguntas, e as por unidade levam o 
 uma versão do formulário (`dados->>'versao'`); filtre por ela ao comparar respostas de épocas diferentes:
 
 ```sql
--- Quem respondeu, modelo de contratação (8.4) e prazo (8.3.data)
+-- Quem respondeu, estratégia para os sistemas atuais (id 2.3) e hospedagem (id 2.8)
 SELECT id, recebido_em, respondente,
-       dados->'respostas'->>'8.4'      AS contratacao,
-       dados->'respostas'->>'8.3.data' AS prazo
+       dados->'respostas'->>'2.3' AS estrategia,
+       dados->'respostas'->>'2.8' AS hospedagem
 FROM respostas WHERE dados->>'versao' = '3' ORDER BY id DESC;
 
 -- Pontos de atenção da síntese, um por linha

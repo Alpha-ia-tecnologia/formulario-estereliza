@@ -106,6 +106,48 @@ export const DOCUMENTS: readonly Item[] = [
   { key: 'equipamentos', label: 'Lista de equipamentos por unidade (fabricante, modelo, capacidade)' },
   { key: 'registro-ciclo', label: 'Exemplo de registro de ciclo de cada equipamento' },
   { key: 'faturamento', label: 'Exemplo de relatório de faturamento ou medição' },
+  { key: 'kits', label: 'Lista de kits com a composição de cada um' },
+  { key: 'precos', label: 'Tabela de preços atual ou contrato-padrão' },
+  { key: 'indicadores', label: 'Relatório de indicadores ou de gestão usado hoje' },
+  { key: 'pops', label: 'POPs principais (recebimento, limpeza, preparo, esterilização e liberação)' },
+]
+
+/** Tipos de equipamento cujo registro de ciclo o sistema pode importar ou precisa digitar (2.5). */
+export const CYCLE_EQUIPMENT: readonly Item[] = [
+  { key: 'vapor', label: 'Autoclaves a vapor' },
+  { key: 'eto', label: 'Óxido de etileno' },
+  { key: 'peroxido', label: 'Peróxido de hidrogênio' },
+  { key: 'lavadoras', label: 'Termodesinfectoras ou lavadoras' },
+  { key: 'seladoras', label: 'Seladoras' },
+]
+
+export const CYCLE_RECORD_LEVELS: readonly Option[] = [
+  { value: 'arquivo', label: 'Arquivo', hint: 'Pen drive ou cartão de memória' },
+  { value: 'rede', label: 'Cabo ou rede', hint: 'Até um computador ou programa do fabricante' },
+  { value: 'impressao', label: 'Só impressão' },
+  { value: 'manual', label: 'Anotado à mão' },
+  { value: 'nao-tem', label: 'Não temos' },
+  { value: 'nao-sei', label: 'Não sei' },
+]
+
+/** Postos de trabalho da operação (2.6). */
+export const WORKSTATIONS: readonly Item[] = [
+  { key: 'recebimento', label: 'Recebimento e triagem' },
+  { key: 'limpeza', label: 'Limpeza (área suja)' },
+  { key: 'preparo', label: 'Preparo e embalagem' },
+  { key: 'carga', label: 'Montagem e retirada da carga' },
+  { key: 'liberacao', label: 'Liberação e qualidade' },
+  { key: 'expedicao', label: 'Guarda estéril e expedição' },
+  { key: 'motorista', label: 'Coleta e entrega (motorista)' },
+  { key: 'escritorio', label: 'Faturamento e escritório' },
+]
+
+export const WORKSTATION_LEVELS: readonly Option[] = [
+  { value: 'leitor', label: 'Computador com leitor', hint: 'Leitor de código de barras' },
+  { value: 'computador', label: 'Computador sem leitor' },
+  { value: 'movel', label: 'Tablet ou celular' },
+  { value: 'papel', label: 'Só papel' },
+  { value: 'nao-existe', label: 'Não existe' },
 ]
 
 export type DocumentStatus = 'anexado' | 'depois' | 'nao-tem'

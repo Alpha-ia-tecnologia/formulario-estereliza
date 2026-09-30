@@ -1,19 +1,19 @@
+import { MODULE_DETAILS_SECTION } from './moduleDetails'
 import {
   CURRENT_SYSTEMS,
-  DOCUMENTS,
+  CYCLE_EQUIPMENT,
+  CYCLE_RECORD_LEVELS,
   HIGH_PRIORITY_SOFT_LIMIT,
   MODULES,
   PRIORITY_LEVELS,
   SHARED_ITEMS,
   SHARING_LEVELS,
-  UNITS,
   UNIT_OPTIONS,
   UNITS_FIELD_ID,
+  WORKSTATIONS,
+  WORKSTATION_LEVELS,
   YES_NO,
-  isUnitId,
-  selectedUnits,
 } from './options'
-import { isOtherValue, otherText } from './other'
 import type { Answers, Field, Option, Section } from './types'
 
 const selected = (answers: Answers, id: string): readonly string[] => {
@@ -24,7 +24,7 @@ const selected = (answers: Answers, id: string): readonly string[] => {
 const equals = (id: string, value: string) => (answers: Answers) => answers[id] === value
 const oneOf = (id: string, values: readonly string[]) => (answers: Answers) => values.includes(String(answers[id] ?? ''))
 
-/** O que mais incomoda nos sistemas atuais (2.2); também alimenta as sugestões da 8.1. */
+/** O que mais incomoda nos sistemas atuais (2.2). */
 const PAIN_POINTS: readonly Option[] = [
   { value: 'lentidao', label: 'Lentidão' },
   { value: 'digitacao', label: 'Digitação repetida entre sistemas' },
@@ -34,30 +34,10 @@ const PAIN_POINTS: readonly Option[] = [
   { value: 'telas', label: 'Telas confusas' },
 ]
 
-const URGENT_PROBLEMS: readonly string[] = [
-  'Rastreabilidade até o cliente',
-  'Digitação repetida entre sistemas',
-  'Faturamento manual',
-  'Registros de ciclo em papel',
-  'Falta de visão consolidada das unidades',
-  'Não conformidades sem histórico',
-]
-
-/** Sugestões da 8.1: primeiro o que foi marcado como incômodo na 2.2, depois as comuns. */
-function urgentProblems(answers: Answers): readonly string[] {
-  const fromPains = selected(answers, '2.2.incomoda').map((value) =>
-    isOtherValue(value) ? otherText(value) : PAIN_POINTS.find((option) => option.value === value)?.label ?? '',
-  )
-  return [...new Set([...fromPains.filter((item) => item.trim() !== ''), ...URGENT_PROBLEMS])]
-}
-
 /** Substituir sistemas implica decidir o que migrar. */
 const replacesSystems = oneOf('2.3', ['todos', 'alguns'])
 
-const BUDGET_OTHER = { label: 'Outra', prompt: 'Qual faixa?' }
-const BUDGET_UNDEFINED: Option = { value: 'a-definir', label: 'Ainda não definida' }
-
-export const SECTIONS: readonly Section[] = [
+const RAW_SECTIONS: readonly Section[] = [
   {
     id: 'identificacao',
     title: 'Identificação',
@@ -89,7 +69,7 @@ export const SECTIONS: readonly Section[] = [
       {
         id: UNITS_FIELD_ID,
         title: 'Unidades que o novo sistema vai atender',
-        help: 'Todas vêm marcadas. Só volume, equipe e internet são perguntados unidade por unidade.',
+        help: 'Todas vêm marcadas. As unidades operam igual; só a internet é perguntada unidade por unidade.',
         fields: [{ kind: 'multi', id: UNITS_FIELD_ID, options: UNIT_OPTIONS }],
       },
       {
@@ -97,78 +77,30 @@ export const SECTIONS: readonly Section[] = [
         title: 'Data',
         fields: [{ kind: 'text', id: 'ident.data', inputType: 'date' }],
       },
-    ],
-  },
-  {
-    id: 'operacao',
-    number: '1',
-    title: 'Operação atual',
-    intro: 'Como a Steriliza opera hoje — do mesmo jeito em todas as unidades — e o tamanho de cada uma. Só volume e equipe vão unidade por unidade.',
-    blocks: [
       {
-        id: '1.1',
-        number: '1.1',
-        title: 'Métodos de esterilização oferecidos',
-        fields: [{
-          kind: 'multi', id: '1.1', other: { label: 'Outro', prompt: 'Qual método?' }, options: [
-            { value: 'eto', label: 'Óxido de etileno' },
-            { value: 'vapor', label: 'Vapor' },
-            { value: 'peroxido', label: 'Peróxido de hidrogênio' },
-          ],
-        }],
-      },
-      {
-        id: '1.2',
-        number: '1.2',
-        title: 'Volume médio mensal de cada unidade',
-        help: 'Números aproximados já ajudam a dimensionar o sistema. Em "Kits e itens", cada kit ou caixa conta como 1, e cada item avulso também.',
-        fields: [{
-          kind: 'numberGrid', id: '1.2', perUnit: true, suffix: 'por mês', items: [
-            { key: 'itens', label: 'Kits e itens' },
-            { key: 'ciclos', label: 'Ciclos' },
-            { key: 'clientes', label: 'Clientes ativos' },
-          ],
-        }],
-      },
-      {
-        id: '1.3',
-        number: '1.3',
-        title: 'Horário de funcionamento',
-        fields: [{
-          kind: 'single', id: '1.3', other: { label: 'Outro', prompt: 'Qual horário?' }, options: [
-            { value: 'comercial', label: 'Comercial' },
-            { value: 'turnos', label: 'Turnos' },
-            { value: '24h', label: '24 horas' },
-          ],
-        }],
-      },
-      {
-        id: '1.4',
-        number: '1.4',
-        title: 'Número de funcionários de cada unidade',
-        fields: [{ kind: 'numberGrid', id: '1.4', perUnit: true, suffix: 'pessoas', items: [{ key: 'total', label: 'Funcionários' }] }],
-      },
-      {
-        id: '1.5',
-        number: '1.5',
-        title: 'A limpeza do material é feita pela Steriliza?',
-        fields: [{
-          kind: 'single', id: '1.5', options: [
-            { value: 'sempre', label: 'Sempre' },
-            { value: 'depende', label: 'Depende do cliente' },
-            { value: 'nunca', label: 'Nunca' },
-          ],
-        }],
-      },
-      {
-        id: '1.6',
-        number: '1.6',
-        title: 'Alguma unidade foge do padrão?',
-        help: 'As perguntas desta etapa valem para todas as unidades. Se alguma opera diferente, conte aqui.',
-        fields: [{
-          kind: 'text', id: '1.6', multiline: true, placeholder: 'Ex.: só uma unidade tem óxido de etileno',
-          suggestions: ['Não, todas operam igual', 'Métodos diferentes em uma unidade', 'Horário diferente em uma unidade'],
-        }],
+        id: 'ident.apoio',
+        title: 'Em quais assuntos outra pessoa pode completar as respostas?',
+        help: 'Assim sabemos a quem perguntar o que ficar em branco.',
+        fields: [
+          {
+            kind: 'multi', id: 'ident.apoio', options: [
+              { value: 'qualidade', label: 'Qualidade/RT' },
+              { value: 'financeiro', label: 'Financeiro e faturamento' },
+              { value: 'logistica', label: 'Logística e coleta' },
+              { value: 'informatica', label: 'Informática' },
+              { value: 'comercial', label: 'Comercial e contratos' },
+              { value: 'nenhum', label: 'Respondo tudo sozinho(a)' },
+            ],
+          },
+          {
+            kind: 'text',
+            id: 'ident.apoio.quem',
+            label: 'Quem são (nome e contato)',
+            multiline: true,
+            placeholder: 'Ex.: Ana, qualidade — (98) 99999-9999',
+            when: (answers) => selected(answers, 'ident.apoio').some((value) => value !== 'nenhum'),
+          },
+        ],
       },
     ],
   },
@@ -269,43 +201,30 @@ export const SECTIONS: readonly Section[] = [
         id: '2.4',
         number: '2.4',
         title: 'Outros sistemas em uso',
-        help: 'Além dos da 2.1. O novo sistema pode precisar conversar com eles.',
+        help: 'Além dos sistemas da primeira pergunta desta etapa. O novo sistema pode precisar conversar com eles.',
         fields: [
           {
-            kind: 'multi', id: '2.4', options: [
+            kind: 'multi', id: '2.4', other: { label: 'Outro', prompt: 'Qual sistema?' }, options: [
               { value: 'contabil', label: 'Contábil' },
               { value: 'nota-fiscal', label: 'Nota fiscal' },
               { value: 'ponto', label: 'Ponto' },
             ],
           },
-          { kind: 'text', id: '2.4.nomes', label: 'Nomes dos sistemas ou fornecedores', placeholder: 'Ex.: Domínio, NFE.io, Secullum' },
         ],
       },
       {
         id: '2.5',
         number: '2.5',
-        title: 'Os esterilizadores exportam dados dos ciclos?',
-        help: 'Se exportarem arquivo, o sistema pode importar os ciclos sem digitação. Marcas e modelos vão na lista de equipamentos da etapa 9.',
-        fields: [{
-          kind: 'single', id: '2.5', options: [
-            { value: 'arquivo', label: 'Sim, em arquivo' },
-            { value: 'impressao', label: 'Só impressão' },
-            { value: 'nao', label: 'Não' },
-          ],
-        }],
+        title: 'Como sai hoje o registro de ciclo de cada tipo de equipamento?',
+        help: 'Define se o sistema importa os ciclos sozinho ou se alguém digita.',
+        fields: [{ kind: 'matrix', id: '2.5.registro', items: CYCLE_EQUIPMENT, levels: CYCLE_RECORD_LEVELS, itemNoun: 'equipamentos' }],
       },
       {
         id: '2.6',
         number: '2.6',
-        title: 'Equipamentos disponíveis na operação',
-        fields: [{
-          kind: 'multi', id: '2.6', other: { label: 'Outro', prompt: 'Qual equipamento?' }, options: [
-            { value: 'computadores', label: 'Computadores' },
-            { value: 'moveis', label: 'Tablets/celulares' },
-            { value: 'leitor', label: 'Leitor de código de barras' },
-            { value: 'impressora', label: 'Impressora de etiquetas' },
-          ],
-        }],
+        title: 'Hoje, com o que cada posto de trabalho registra o que faz?',
+        help: 'Mostra onde faltam computador, leitor ou celular e que tipo de tela cada posto precisa.',
+        fields: [{ kind: 'matrix', id: '2.6.postos', items: WORKSTATIONS, levels: WORKSTATION_LEVELS, itemNoun: 'postos' }],
       },
       {
         id: '2.7',
@@ -331,6 +250,48 @@ export const SECTIONS: readonly Section[] = [
             { value: 'indiferente', label: 'Sem preferência' },
           ],
         }],
+      },
+      {
+        id: '2.9',
+        number: '2.9',
+        title: 'Com o que o novo sistema precisa trocar informações sem digitação?',
+        fields: [{
+          kind: 'multi', id: '2.9', other: { label: 'Outro', prompt: 'Com o quê?' }, options: [
+            { value: 'contabilidade', label: 'Contabilidade' },
+            { value: 'nota-fiscal', label: 'Emissão de nota fiscal' },
+            { value: 'bancos', label: 'Bancos (boleto, Pix, extrato)' },
+            { value: 'hospitais', label: 'Sistemas dos hospitais clientes' },
+            { value: 'whatsapp', label: 'WhatsApp' },
+            { value: 'email', label: 'E-mail' },
+            { value: 'ponto', label: 'Ponto e folha de pagamento' },
+            { value: 'rastreador', label: 'Rastreador dos veículos' },
+            { value: 'nao-sei', label: 'Não sei' },
+          ],
+        }],
+      },
+      {
+        id: '2.10',
+        number: '2.10',
+        title: 'Se o sistema parar, por quanto tempo a operação aguenta sem ele?',
+        fields: [
+          {
+            kind: 'single', id: '2.10', options: [
+              { value: 'minutos', label: 'Não pode parar nem por minutos' },
+              { value: '1h', label: 'Até 1 hora' },
+              { value: '4h', label: 'Até 4 horas' },
+              { value: '1dia', label: 'Até 1 dia' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+          {
+            kind: 'single', id: '2.10.perda', label: 'Numa falha grave, quanto trabalho seria aceitável registrar de novo?', options: [
+              { value: 'nenhum', label: 'Nenhum registro pode se perder' },
+              { value: '1h', label: 'Até 1 hora de trabalho' },
+              { value: '1dia', label: 'Até 1 dia de trabalho' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -458,6 +419,47 @@ export const SECTIONS: readonly Section[] = [
           ],
         }],
       },
+      {
+        id: '3.8',
+        number: '3.8',
+        title: 'A que licenças, normas e acreditações a Steriliza responde hoje?',
+        fields: [{
+          kind: 'multi', id: '3.8', other: { label: 'Outra', prompt: 'Qual?' }, options: [
+            { value: 'licenca', label: 'Licença da vigilância sanitária' },
+            { value: 'anvisa', label: 'Regras da ANVISA para processamento de produtos para saúde' },
+            { value: 'ona', label: 'Acreditação ONA' },
+            { value: 'iso-9001', label: 'ISO 9001' },
+            { value: 'iso-13485', label: 'ISO 13485' },
+            { value: 'em-preparacao', label: 'Em preparação para acreditação ou certificação' },
+            { value: 'nao-sei', label: 'Não sei' },
+          ],
+        }],
+      },
+      {
+        id: '3.9',
+        number: '3.9',
+        title: 'Quando um indicador biológico dá positivo ou um teste falha, o que acontece?',
+        fields: [
+          {
+            kind: 'single', id: '3.9', label: 'O que é recolhido', options: [
+              { value: 'carga', label: 'Só a carga testada' },
+              { value: 'desde-ultimo', label: 'Todas as cargas do equipamento desde o último resultado aprovado' },
+              { value: 'rt-decide', label: 'O RT decide caso a caso' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+          {
+            kind: 'multi', id: '3.9.acoes', label: 'O que precisa ser feito', options: [
+              { value: 'listar', label: 'Listar clientes, setores e kits afetados' },
+              { value: 'bloquear', label: 'Bloquear no estoque o que ainda não saiu' },
+              { value: 'avisar', label: 'Avisar os clientes' },
+              { value: 'ciencia', label: 'Registrar a ciência e a devolução de cada cliente' },
+              { value: 'relatorio', label: 'Gerar relatório do recolhimento' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
@@ -505,10 +507,6 @@ export const SECTIONS: readonly Section[] = [
               { value: 'agenda', label: 'Agenda fixa' },
             ],
           },
-          {
-            kind: 'text', id: '4.3.detalhes', label: 'Detalhes', multiline: true, placeholder: 'Quem recebe o pedido, com quanta antecedência, como é confirmado',
-            suggestions: ['Cliente liga na recepção', 'Agenda fixa semanal', 'Pedido por WhatsApp com foto', 'Confirmação por e-mail'],
-          },
         ],
       },
       {
@@ -544,10 +542,6 @@ export const SECTIONS: readonly Section[] = [
               { value: 'relatorio', label: 'Relatório' },
               { value: 'nota-fiscal', label: 'Nota fiscal' },
             ],
-          },
-          {
-            kind: 'text', id: '4.5.obs', label: 'Observações', multiline: true, placeholder: 'Ex.: medição fecha dia 25, nota até dia 5',
-            suggestions: ['Medição fecha dia 25', 'Nota fiscal até dia 5', 'Cliente confere a medição antes da nota'],
           },
         ],
       },
@@ -591,6 +585,7 @@ export const SECTIONS: readonly Section[] = [
       },
     ],
   },
+  MODULE_DETAILS_SECTION,
   {
     id: 'acesso',
     number: '6',
@@ -655,6 +650,20 @@ export const SECTIONS: readonly Section[] = [
           },
           { kind: 'text', id: '6.4.responsavel', label: 'Responsável pela LGPD', placeholder: 'Nome e cargo' },
         ],
+      },
+      {
+        id: '6.5',
+        number: '6.5',
+        title: 'Quando alguém corrigir um registro já salvo, o que o sistema deve fazer?',
+        fields: [{
+          kind: 'single', id: '6.5', options: [
+            { value: 'historico', label: 'Permitir, guardando o valor antigo, quem, quando e o motivo' },
+            { value: 'qualidade', label: 'Só a qualidade ou o RT corrige, com motivo' },
+            { value: 'supervisor', label: 'Só com aprovação do supervisor' },
+            { value: 'anular', label: 'Não permitir: um novo registro anula o anterior' },
+            { value: 'nao-sei', label: 'Não sei' },
+          ],
+        }],
       },
     ],
   },
@@ -754,134 +763,33 @@ export const SECTIONS: readonly Section[] = [
       },
     ],
   },
-  {
-    id: 'projeto',
-    number: '8',
-    title: 'Projeto',
-    intro: 'Urgências, prazos, orçamento e quem decide. Isso orienta o plano de entrega.',
-    blocks: [
-      {
-        id: '8.1',
-        number: '8.1',
-        title: 'Os três problemas mais urgentes que o sistema deve resolver',
-        help: 'Em ordem: o primeiro é o mais urgente. As sugestões começam pelo que você marcou como incômodo na 2.2.',
-        fields: [{
-          kind: 'ranked', id: '8.1', count: 3, placeholders: [
-            'Ex.: não conseguimos rastrear um kit até o cliente',
-            'Ex.: cada unidade controla tudo em planilhas diferentes',
-            'Ex.: faturamento é montado à mão todo mês',
-          ],
-          suggestions: urgentProblems,
-        }],
-      },
-      {
-        id: '8.2',
-        number: '8.2',
-        title: 'A implantação começa por uma unidade piloto?',
-        help: 'Começar por uma unidade reduz o risco; as demais entram depois. O que entra na primeira entrega já vem das prioridades da etapa 5.',
-        fields: [{
-          kind: 'single',
-          id: '8.2',
-          options: [
-            ...UNITS.map((unit): Option => ({ value: unit.id, label: `Sim: ${unit.city}` })),
-            { value: 'todas', label: 'Não, todas juntas' },
-            { value: 'a-definir', label: 'Ainda não definido' },
-          ],
-          // Só as unidades que o sistema vai atender podem ser piloto.
-          filterOptions: (options, answers) => {
-            const units: readonly string[] = selectedUnits(answers)
-            return options.filter((option) => !isUnitId(option.value) || units.includes(option.value))
-          },
-        }],
-      },
-      {
-        id: '8.3',
-        number: '8.3',
-        title: 'Há prazo ou data importante?',
-        fields: [
-          { kind: 'single', id: '8.3', options: YES_NO },
-          { kind: 'text', id: '8.3.data', label: 'Data', inputType: 'date', when: equals('8.3', 'sim') },
-          {
-            kind: 'text', id: '8.3.motivo', label: 'O que acontece nessa data?', when: equals('8.3', 'sim'), placeholder: 'Ex.: auditoria ONA, início de contrato, renovação de licença',
-            suggestions: ['Auditoria ONA', 'Início de contrato', 'Renovação de licença', 'Fim do contrato do sistema atual'],
-          },
-        ],
-      },
-      {
-        id: '8.4',
-        number: '8.4',
-        title: 'Modelo de contratação e faixa de orçamento',
-        fields: [
-          {
-            kind: 'single', id: '8.4', label: 'Modelo', other: { label: 'Outro', prompt: 'Qual modelo?' }, options: [
-              { value: 'fechado', label: 'Projeto fechado' },
-              { value: 'mensalidade', label: 'Mensalidade' },
-              { value: 'equipe', label: 'Equipe dedicada' },
-            ],
-          },
-          {
-            kind: 'single',
-            id: '8.4.projeto',
-            label: 'Faixa de orçamento do projeto',
-            other: BUDGET_OTHER,
-            when: (answers) => answers['8.4'] === 'fechado' || isOtherValue(String(answers['8.4'] ?? '')),
-            options: [
-              { value: 'ate-100k', label: 'Até R$ 100 mil' },
-              { value: '100-300k', label: 'R$ 100 a 300 mil' },
-              { value: 'acima-300k', label: 'Acima de R$ 300 mil' },
-              BUDGET_UNDEFINED,
-            ],
-          },
-          {
-            kind: 'single',
-            id: '8.4.mensal',
-            label: 'Faixa de orçamento por mês',
-            other: BUDGET_OTHER,
-            when: oneOf('8.4', ['mensalidade', 'equipe']),
-            options: [
-              { value: 'ate-5k', label: 'Até R$ 5 mil por mês' },
-              { value: '5-15k', label: 'R$ 5 a 15 mil por mês' },
-              { value: 'acima-15k', label: 'Acima de R$ 15 mil por mês' },
-              BUDGET_UNDEFINED,
-            ],
-          },
-        ],
-      },
-      {
-        id: '8.5',
-        number: '8.5',
-        title: 'Quem decide e quem será o ponto focal',
-        fields: [
-          { kind: 'person', id: '8.5.decisor', label: 'Quem decide', canUseRespondent: true },
-          { kind: 'person', id: '8.5.focal', label: 'Ponto focal', canUseRespondent: true },
-        ],
-      },
-      {
-        id: '8.6',
-        number: '8.6',
-        title: 'Como vão saber, em 6 meses, que o sistema deu certo?',
-        fields: [{
-          kind: 'text', id: '8.6', multiline: true, placeholder: 'Ex.: faturamento fechado em 2 dias, zero etiqueta manual, painel único das unidades',
-          suggestions: ['Faturamento fechado em 2 dias', 'Zero etiqueta manual', 'Auditoria sem pendências', 'Painel único das unidades', 'Qualquer kit rastreado em 1 minuto'],
-        }],
-      },
-    ],
-  },
-  {
-    id: 'documentos',
-    number: '9',
-    title: 'Documentos para anexar',
-    intro: 'Anexe aqui mesmo ou marque o que será enviado depois. Os arquivos vão juntos no pacote final.',
-    blocks: [
-      {
-        id: 'documentos',
-        title: 'Documentos das unidades',
-        help: 'Se cada unidade tem o seu, anexe todos no mesmo item.',
-        fields: [{ kind: 'documents', id: 'documentos', items: DOCUMENTS }],
-      },
-    ],
-  },
 ]
+
+/**
+ * A numeração exibida vem da posição: etapas e perguntas marcadas como numeradas
+ * recebem números em sequência. Os ids das respostas são estáveis — tirar ou
+ * incluir uma etapa não muda o significado do que já foi respondido.
+ */
+function numberSections(sections: readonly Section[]): readonly Section[] {
+  let sectionCount = 0
+  return sections.map((section) => {
+    if (section.number === undefined) return section
+    sectionCount += 1
+    const number = String(sectionCount)
+    let blockCount = 0
+    return {
+      ...section,
+      number,
+      blocks: section.blocks.map((block) => {
+        if (block.number === undefined) return block
+        blockCount += 1
+        return { ...block, number: `${number}.${blockCount}` }
+      }),
+    }
+  })
+}
+
+export const SECTIONS: readonly Section[] = numberSections(RAW_SECTIONS)
 
 export const REVIEW_STEP_ID = 'revisao'
 

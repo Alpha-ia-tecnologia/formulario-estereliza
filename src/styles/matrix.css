@@ -158,6 +158,25 @@
   box-shadow: var(--focus-ring);
 }
 
+/* Com 5 ou mais níveis, o nome vai em cima e as opções quebram em linhas, em qualquer largura */
+.matrix__row:has(.segmented[data-count='5']),
+.matrix__row:has(.segmented[data-count='6']),
+.matrix__row:has(.segmented[data-count='7']) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.segmented[data-count='5'],
+.segmented[data-count='6'],
+.segmented[data-count='7'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
 @media (max-width: 760px) {
   .matrix__row {
     grid-template-columns: minmax(0, 1fr);
@@ -183,5 +202,12 @@
     padding: 8px 2px;
     font-size: 0.8125rem;
     text-align: center;
+  }
+
+  /* Opções que quebram em linhas precisam de respiro lateral para não parecerem coladas */
+  .segmented[data-count='5'] .segmented__label,
+  .segmented[data-count='6'] .segmented__label,
+  .segmented[data-count='7'] .segmented__label {
+    padding: 8px 12px;
   }
 }

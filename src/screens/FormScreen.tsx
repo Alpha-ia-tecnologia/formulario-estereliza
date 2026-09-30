@@ -4,7 +4,7 @@ import { ArrowIcon, CheckIcon, MenuIcon } from '../components/Icons'
 import { QuestionBlock, blockAnchor } from '../components/QuestionBlock'
 import { SectionRail } from '../components/SectionRail'
 import type { DraftApi } from '../draft/useDraft'
-import { sectionCounter, sectionProgress } from '../form/progress'
+import { sectionCounter, sectionProgress, visibleBlocks } from '../form/progress'
 import { SECTIONS, getSection, sectionIndex } from '../form/schema'
 
 interface FormScreenProps {
@@ -25,6 +25,7 @@ export function FormScreen({ sectionId, draft, focusBlockId, onFocusHandled, goT
   const answers = draft.draft.answers
   const counter = sectionCounter(section, answers)
   const isComplete = sectionProgress(section, answers).ratio >= 1
+  const blocks = visibleBlocks(section, answers)
   const [railOpen, setRailOpen] = useState(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const { setLastSection } = draft
@@ -113,9 +114,10 @@ export function FormScreen({ sectionId, draft, focusBlockId, onFocusHandled, goT
           </header>
 
           <div className="questions" key={`q-${section.id}`}>
-            {section.blocks.map((block) => (
+            {blocks.map((block) => (
               <QuestionBlock key={block.id} block={block} answers={answers} onChange={draft.setAnswer} />
             ))}
+            {blocks.length === 0 && <p className="stage__note">Nenhuma pergunta nesta etapa para as suas respostas. É só seguir.</p>}
           </div>
 
           <nav className="step-nav" aria-label="Navegação entre etapas">
