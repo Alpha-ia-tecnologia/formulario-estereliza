@@ -1,0 +1,18 @@
+# Instalados e gerados dentro da imagem
+node_modules
+dist
+coverage
+
+# Dados e segredos locais nunca vão para a imagem
+dados
+.env
+.env.*
+!.env.example
+
+# Nada disso é usado no build
+.git
+.claude
+.claude-flow
+.vscode
+*.docx
+*.log

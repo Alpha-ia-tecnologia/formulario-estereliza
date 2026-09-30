@@ -61,18 +61,25 @@ export function buildExportJson({ answers, attachments, now = new Date() }: Expo
   }
 }
 
-export interface BuiltPackage {
-  readonly blob: Blob
+export type ExportJson = ReturnType<typeof buildExportJson>
+
+export interface PackageFiles {
+  readonly json: ExportJson
+  /** resumo.md: relatório completo terminando na síntese. */
+  readonly markdown: string
+  readonly files: Readonly<Record<string, Uint8Array>>
   readonly fileName: string
 }
 
-export async function buildPackage(input: ExportInput): Promise<BuiltPackage> {
+/** Conteúdo do pacote antes de compactar — usado pelo download e pelo servidor que guarda as respostas. */
+export async function buildPackageFiles(input: ExportInput): Promise<PackageFiles> {
   const now = input.now ?? new Date()
   const json = buildExportJson({ ...input, now })
+  // O relatório termina com a síntese das respostas.
+  const markdown = `${toMarkdown({ exportedAt: json.exportadoEm, answers: json.respostas })}\n${synthesisToMarkdown(json.sintese)}`
   const files: Record<string, Uint8Array> = {
     [JSON_NAME]: strToU8(JSON.stringify(json, null, 2)),
-    // O relatório termina com a síntese das respostas.
-    [MARKDOWN_NAME]: strToU8(`${toMarkdown({ exportedAt: json.exportadoEm, answers: json.respostas })}\n${synthesisToMarkdown(json.sintese)}`),
+    [MARKDOWN_NAME]: strToU8(markdown),
   }
   const taken = new Set<string>()
   for (const attachment of input.attachments) {
@@ -80,10 +87,21 @@ export async function buildPackage(input: ExportInput): Promise<BuiltPackage> {
     taken.add(path)
     files[path] = new Uint8Array(await attachment.blob.arrayBuffer())
   }
-  const zipped = zipSync(files, { level: 6 })
+  return { json, markdown, files, fileName: exportFileName(now, 'zip') }
+}
+
+export const zipFiles = (files: Readonly<Record<string, Uint8Array>>): Uint8Array<ArrayBuffer> => zipSync(files, { level: 6 })
+
+export interface BuiltPackage {
+  readonly blob: Blob
+  readonly fileName: string
+}
+
+export async function buildPackage(input: ExportInput): Promise<BuiltPackage> {
+  const built = await buildPackageFiles(input)
   return {
-    blob: new Blob([zipped], { type: 'application/zip' }),
-    fileName: exportFileName(now, 'zip'),
+    blob: new Blob([zipFiles(built.files)], { type: 'application/zip' }),
+    fileName: built.fileName,
   }
 }
 

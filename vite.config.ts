@@ -11,15 +11,24 @@ export default defineConfig({
   plugins: [react(), viteSingleFile()],
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
     css: false,
     // Fluxos de interface digitam em tabelas inteiras; com cobertura ligada passam de 5 s.
     testTimeout: 15000,
+    // O app roda em jsdom com o setup da Testing Library; o servidor, em Node puro.
+    projects: [
+      {
+        extends: true,
+        test: { name: 'app', environment: 'jsdom', include: ['src/**/*.test.{ts,tsx}'], setupFiles: ['./src/test/setup.ts'] },
+      },
+      {
+        extends: true,
+        test: { name: 'servidor', environment: 'node', include: ['server/**/*.test.ts'] },
+      },
+    ],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/main.tsx', 'src/env.d.ts'],
+      include: ['src/**/*.{ts,tsx}', 'server/**/*.ts'],
+      exclude: ['**/*.test.{ts,tsx}', 'src/test/**', 'src/main.tsx', 'src/env.d.ts', 'server/main.ts'],
       thresholds: { lines: 80, functions: 80, statements: 80, branches: 75 },
     },
   },

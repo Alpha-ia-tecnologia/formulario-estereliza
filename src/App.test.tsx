@@ -128,6 +128,51 @@ describe('fluxo completo', () => {
     expect(screen.getByRole('region', { name: 'Síntese' })).toHaveFocus()
   })
 
+  it('envia as respostas ao servidor quando ele existe e mostra o protocolo', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/saude')) return Response.json({ ok: true })
+      if (url.endsWith('/api/respostas') && init?.method === 'POST') {
+        return Response.json({ id: 7, recebidoEm: '2026-09-29T15:00:00.000Z' }, { status: 201 })
+      }
+      return Response.json({ erro: 'Rota não encontrada.' }, { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:pacote'), revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana' })
+
+    await user.click(await screen.findByRole('button', { name: 'Enviar respostas' }))
+
+    expect(await screen.findByText(/protocolo nº 7/)).toBeInTheDocument()
+    const sent = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/api/respostas'))
+    expect(sent?.[1]?.body).toBeInstanceOf(Blob)
+    expect(screen.queryByText(/Nada é enviado pela internet/)).not.toBeInTheDocument()
+
+    // Baixar uma cópia depois não apaga o protocolo.
+    await user.click(screen.getByRole('button', { name: 'Baixar uma cópia (.zip)' }))
+    expect(await screen.findByText(/steriliza-requisitos-\d{4}-\d{2}-\d{2}\.zip/)).toBeInTheDocument()
+    expect(screen.getByText(/protocolo nº 7/)).toBeInTheDocument()
+    click.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('mostra a mensagem do servidor quando o envio é recusado', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith('/api/saude') ? Response.json({ ok: true }) : Response.json({ erro: 'Pacote recusado.' }, { status: 400 }),
+      ),
+    )
+    const user = renderApp('#/revisao', { 'ident.nome': 'Ana' })
+
+    await user.click(await screen.findByRole('button', { name: 'Enviar respostas' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Pacote recusado.')
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeEnabled()
+    vi.unstubAllGlobals()
+  })
+
   it('avisa quando não consegue copiar a síntese', async () => {
     const user = renderApp('#/revisao', { 'ident.nome': 'Ana' })
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('permissão negada'))

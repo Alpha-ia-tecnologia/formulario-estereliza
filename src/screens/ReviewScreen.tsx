@@ -11,6 +11,7 @@ import { summarize } from '../form/format'
 import { selectedUnits, unitLabel } from '../form/options'
 import { missingRequired, overallProgress } from '../form/progress'
 import { prefersReducedMotion } from '../lib/transition'
+import { useApi } from '../lib/useApi'
 
 /** Leva à síntese e põe o foco nela, para o teclado e o leitor de tela seguirem o salto. */
 function showSynthesis() {
@@ -28,6 +29,7 @@ type ReviewScreenProps = {
 export function ReviewScreen({ draft, goToSection, goHome }: ReviewScreenProps) {
   const [isOnlyBlank, setIsOnlyBlank] = useState(false)
   const attachments = useAttachments()
+  const api = useApi()
   const answers = draft.draft.answers
   const summary = summarize(answers)
   const percent = Math.round(overallProgress(answers).ratio * 100)
@@ -108,7 +110,7 @@ export function ReviewScreen({ draft, goToSection, goHome }: ReviewScreenProps) 
           <SynthesisPanel answers={answers} />
         </main>
 
-        <SendPanel answers={answers} attachments={attachments.items} canExport={!isMissingRespondent && !attachments.loading} />
+        <SendPanel answers={answers} attachments={attachments.items} canExport={!isMissingRespondent && !attachments.loading} api={api} />
       </div>
     </div>
   )
