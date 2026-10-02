@@ -40,7 +40,7 @@ describe('fluxo completo', () => {
     await user.click(screen.getAllByRole('button', { name: 'Revisar e enviar' })[0]!)
     expect(await screen.findByRole('heading', { level: 1, name: 'Revise e envie' })).toBeInTheDocument()
     expect(screen.getByText('Unidades atendidas:').closest('p')).toHaveTextContent(
-      'São Luís — MA, Teresina — PI, Maracanaú — CE, Ananindeua — PA',
+      /Unidades atendidas: São Luís — MA, Teresina — PI, Maracanaú — CE, Ananindeua — PA, Unimed Teresina — PI, DOMU São Luís — MA$/,
     )
     expect(screen.getByText('Mariana Costa')).toBeInTheDocument()
     expect(screen.getByText('Produção')).toBeInTheDocument()
@@ -71,7 +71,10 @@ describe('fluxo completo', () => {
   it('apresenta as etapas e só as perguntas que todos veem na tela inicial', () => {
     renderApp()
     expect(screen.getByText(/São 8 etapas curtas, com salvamento automático\./)).toBeInTheDocument()
-    expect(screen.getByText('Responda 45 perguntas')).toBeInTheDocument()
+    expect(screen.getByText('Responda 46 perguntas')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /Unidades no novo sistema/ }).closest('section')).toHaveTextContent(
+      /Unimed Teresina.*DOMU São Luís/,
+    )
     expect(screen.getByText(/Detalhes aparecem só para os módulos que forem prioridade\./)).toBeInTheDocument()
   })
 
@@ -94,7 +97,7 @@ describe('fluxo completo', () => {
   })
 
   it('bloqueia o pacote enquanto falta o nome de quem respondeu', async () => {
-    const user = renderApp('#/revisao', { '2.8': 'nuvem' })
+    const user = renderApp('#/revisao', { '2.13.tempo': 'horas' })
     expect(await screen.findByRole('alert')).toHaveTextContent(/quem respondeu/)
     expect(screen.getByRole('button', { name: /Baixar pacote/ })).toBeDisabled()
 
@@ -115,16 +118,16 @@ describe('fluxo completo', () => {
   })
 
   it('conta como em branco na revisão só as perguntas visíveis', async () => {
-    // 45 perguntas visíveis; nome, data e unidades já estão respondidos.
+    // 46 perguntas visíveis; nome, data e unidades já estão respondidos.
     renderApp('#/revisao', { 'ident.nome': 'Ana' })
-    expect(await screen.findByRole('checkbox', { name: 'Mostrar só as 42 em branco' })).toBeInTheDocument()
+    expect(await screen.findByRole('checkbox', { name: 'Mostrar só as 43 em branco' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: /Detalhes dos módulos prioritários/ })).not.toBeInTheDocument()
   })
 
   it('revisa os detalhes dos módulos em prioridade alta e volta direto para um deles', async () => {
     const user = renderApp('#/revisao', { 'ident.nome': 'Ana', modulos: { coleta: 'alta' } })
     const details = await screen.findByRole('region', { name: /Detalhes dos módulos prioritários/ })
-    expect(screen.getByRole('checkbox', { name: 'Mostrar só as 43 em branco' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Mostrar só as 44 em branco' })).toBeInTheDocument()
 
     await user.click(within(details).getByRole('button', { name: /Coleta e entrega: Como as coletas e rotas são programadas\?/ }))
     expect(await screen.findByRole('heading', { level: 1, name: /Detalhes dos módulos prioritários/ })).toBeInTheDocument()
@@ -138,7 +141,7 @@ describe('fluxo completo', () => {
 
     expect(lastSection.compareDocumentPosition(synthesis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(synthesis).getByText(/para 1 unidade \(Teresina\), respondido por Ana/)).toBeInTheDocument()
-    expect(within(synthesis).getByText(/^Precisa funcionar sem internet em Teresina/).closest('li')).toHaveAttribute('data-tone', 'alert')
+    expect(within(synthesis).getByText(/^Sem internet boa parte do tempo em Teresina/).closest('li')).toHaveAttribute('data-tone', 'alert')
     expect(within(synthesis).getByText('Unidade').closest('li')).toHaveTextContent('1 Unidade')
 
     await user.click(within(synthesis).getByRole('button', { name: 'Copiar síntese' }))
@@ -222,7 +225,7 @@ describe('fluxo completo', () => {
 
   it('importa um arquivo de respostas e abre a revisão', async () => {
     const user = renderApp()
-    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 3, respostas: { 'ident.nome': 'Paulo' } })
+    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 4, respostas: { 'ident.nome': 'Paulo' } })
     expect(await screen.findByRole('heading', { level: 1, name: 'Revise e envie' })).toBeInTheDocument()
     expect(screen.getByText('Paulo')).toBeInTheDocument()
   })
@@ -232,7 +235,7 @@ describe('fluxo completo', () => {
     const failing = { ...createMemoryStore(), clear: () => Promise.reject(new Error('QuotaExceeded')) }
     const user = renderApp('', undefined, failing)
 
-    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 3, respostas: { 'ident.nome': 'Importado' } })
+    await uploadJson(user, { formulario: 'steriliza-requisitos', versao: 4, respostas: { 'ident.nome': 'Importado' } })
     const dialog = screen.getByRole('dialog', { hidden: true })
     await user.click(within(dialog).getByRole('button', { name: 'Substituir', hidden: true }))
 

@@ -12,7 +12,7 @@ import {
   selectedUnits,
 } from './options'
 import { overallProgress, pruneHidden } from './progress'
-import { choiceText, cityOf, groupByAnswer, joinPt, oneLine, recordOf, textLines, textOf } from './read'
+import { choiceText, groupByAnswer, joinPt, nameOf, oneLine, recordOf, textLines, textOf } from './read'
 import type { Answers, Item, Option } from './types'
 
 /**
@@ -51,7 +51,7 @@ function headline(answers: Answers): string {
   const role = textOf(answers, 'ident.cargo')
   const date = textOf(answers, 'ident.data')
   const percent = Math.round(overallProgress(answers).ratio * 100)
-  const unitsText = `${units.length} ${units.length === 1 ? 'unidade' : 'unidades'} (${joinPt(units.map(cityOf))})`
+  const unitsText = `${units.length} ${units.length === 1 ? 'unidade' : 'unidades'} (${joinPt(units.map(nameOf))})`
   const by = name ? `, respondido por ${name}${role ? ` (${role})` : ''}` : ''
   const on = date ? ` em ${formatDateBR(date)}` : ''
   return `Levantamento de requisitos da Steriliza para ${unitsText}${by}${on}. ${percent}% do formulário preenchido.`
@@ -131,9 +131,12 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
       ...matrixLines(a, '2.5.registro', CYCLE_EQUIPMENT, CYCLE_RECORD_LEVELS, (label) => `Registro de ciclo — ${label.toLowerCase()}`),
       ...matrixLines(a, '2.6.postos', WORKSTATIONS, WORKSTATION_LEVELS, (label) => `Postos — ${label.toLowerCase()}`),
       line('Integrações sem digitação', choiceText(a, '2.9')),
+      line('Buscar na Cobli', choiceText(a, '2.12')),
+      line('Veículos com rastreador da Cobli', choiceText(a, '2.12.frota')),
       line('Tolerância a parada', withDetail(choiceText(a, '2.10'), choiceText(a, '2.10.perda'))),
       line('Internet', groupByAnswer(a, '2.7')),
-      line('Hospedagem preferida', choiceText(a, '2.8')),
+      line('Precisa funcionar sem internet', choiceText(a, '2.13')),
+      line('Tempo máximo sem internet', choiceText(a, '2.13.tempo')),
     ],
   },
   {
@@ -194,6 +197,8 @@ const TOPICS: ReadonlyArray<{ id: string; title: string; build: (answers: Answer
       crossUnit(a, '7.5', '7.5.como', 'Material de uma unidade é processado em outra'),
       line('CNPJ próprio por unidade', choiceText(a, '7.6')),
       line('Novas unidades', withDetail(choiceText(a, '7.7'), textOf(a, '7.7.onde'))),
+      line('Balcão das unidades dentro de hospitais', choiceText(a, '7.8')),
+      line('Unidades dentro de hospitais no novo sistema', withDetail(choiceText(a, '7.8.fluxo'), textLines(a, '7.8.fluxo.oque'))),
     ],
   },
 ]

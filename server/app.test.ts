@@ -63,7 +63,7 @@ describe('recebimento de respostas', () => {
     expect(saved?.sintese).toMatch(/^Levantamento de requisitos da Steriliza para 1 unidade \(Teresina\)/)
     const dados = JSON.parse(saved?.dados ?? '{}')
     expect(dados.formulario).toBe('steriliza-requisitos')
-    expect(dados.sintese.attention[0].text).toMatch(/^Precisa funcionar sem internet em Teresina/)
+    expect(dados.sintese.attention[0].text).toMatch(/^Sem internet boa parte do tempo em Teresina/)
     expect(saved?.resumo).toContain('## Síntese')
   })
 

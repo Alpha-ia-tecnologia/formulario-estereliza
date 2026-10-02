@@ -19,7 +19,7 @@ const FULL: Answers = {
   '2.3.historico': 'ate-5-anos',
   '2.4': ['contabil', 'outra:Folha X'],
   '2.5.registro': { vapor: 'arquivo', eto: 'impressao', peroxido: 'manual' },
-  '2.6.postos': { preparo: 'leitor', motorista: 'papel', limpeza: 'papel' },
+  '2.6.postos': { 'recebimento-preparo': 'leitor', motorista: 'papel', escritorio: 'papel' },
   '2.7@sao-luis': 'estavel',
   '2.7@teresina': 'offline',
   '2.9': ['bancos', 'nota-fiscal'],
@@ -93,9 +93,40 @@ describe('síntese — temas', () => {
   })
 
   it('agrupa a internet por unidade e resume "em todas as unidades"', () => {
-    expect(topic(FULL, 'sistemas')).toContain('Internet: Estável em São Luís; Precisa funcionar sem internet em Teresina')
+    expect(topic(FULL, 'sistemas')).toContain('Internet: Estável em São Luís; Sem internet boa parte do tempo em Teresina')
     const same = { 'ident.unidades': ['sao-luis', 'teresina'], '2.7@sao-luis': 'offline', '2.7@teresina': 'offline' }
-    expect(topic(same, 'sistemas')).toContain('Internet: Precisa funcionar sem internet em todas as unidades')
+    expect(topic(same, 'sistemas')).toContain('Internet: Sem internet boa parte do tempo em todas as unidades')
+  })
+
+  it('nomeia as unidades dentro de hospitais pelo hospital', () => {
+    const answers = { 'ident.unidades': ['teresina', 'unimed-teresina'], '2.7@teresina': 'estavel', '2.7@unimed-teresina': 'instavel' }
+    expect(synthesize(answers, TODAY).headline).toMatch(/para 2 unidades \(Teresina e Unimed Teresina\)/)
+    expect(topic(answers, 'sistemas')).toContain('Internet: Estável em Teresina; Instável em Unimed Teresina')
+  })
+
+  it('resume o balcão das unidades dentro de hospitais e o que elas precisam no novo sistema', () => {
+    const answers = {
+      'ident.unidades': ['domu-sao-luis'],
+      '7.8': ['producao', 'financeiro'],
+      '7.8.fluxo': 'fluxo-proprio',
+      '7.8.fluxo.oque': 'Recebe e devolve na hora\nSó o hospital como cliente',
+    }
+    expect(topic(answers, 'multiunidade')).toEqual([
+      'Balcão das unidades dentro de hospitais: Registra a produção e Lança o financeiro',
+      'Unidades dentro de hospitais no novo sistema: Um fluxo próprio — Recebe e devolve na hora; Só o hospital como cliente',
+    ])
+    // Sem unidade dentro de hospital, a pergunta fica oculta e não entra na síntese.
+    expect(topic({ ...answers, 'ident.unidades': ['sao-luis'] }, 'multiunidade')).toEqual([])
+  })
+
+  it('resume a integração com a Cobli e o que precisa continuar sem internet', () => {
+    const answers = { '2.12': ['posicao', 'chegada'], '2.12.frota': 'parte', '2.13': ['coleta', 'tudo'], '2.13.tempo': 'horas' }
+    expect(topic(answers, 'sistemas')).toEqual([
+      'Buscar na Cobli: Posição dos veículos em tempo real e Hora de chegada e de saída em cada cliente',
+      'Veículos com rastreador da Cobli: Só parte da frota',
+      'Precisa funcionar sem internet: Coleta e entrega no celular do motorista e Tudo que a operação usa',
+      'Tempo máximo sem internet: Algumas horas',
+    ])
   })
 
   it('resume o que os sistemas atuais fazem bem, o que incomoda e o que é digitado duas vezes', () => {
@@ -123,8 +154,8 @@ describe('síntese — temas', () => {
   it('resume com o que cada posto de trabalho registra', () => {
     expect(topic(FULL, 'sistemas')).toEqual(
       expect.arrayContaining([
-        'Postos — computador com leitor: Preparo e embalagem',
-        'Postos — só papel: Limpeza (área suja) e Coleta e entrega (motorista)',
+        'Postos — computador com leitor: Recebimento, limpeza e preparo',
+        'Postos — só papel: Coleta e entrega (motorista) e Faturamento e escritório',
       ]),
     )
   })
@@ -220,7 +251,7 @@ describe('síntese — pontos de atenção', () => {
     const tones = attention.map((point) => point.tone)
     expect(tones.indexOf('info')).toBeGreaterThan(tones.lastIndexOf('alert'))
     expect(attention.filter((point) => point.tone === 'alert').map((point) => point.text)).toEqual([
-      'Precisa funcionar sem internet em Teresina: prever operação offline com sincronização.',
+      'Sem internet boa parte do tempo em Teresina: a operação offline será a regra, com sincronização ao reconectar.',
       'A operação não pode parar nem por minutos: o sistema precisa de contingência e alta disponibilidade.',
       '6 módulos em prioridade alta — vale escalonar a primeira entrega.',
       'Definir se são comuns ou por unidade: Procedimentos da qualidade (POPs).',
@@ -231,7 +262,7 @@ describe('síntese — pontos de atenção', () => {
     expect(texts).toEqual(
       expect.arrayContaining([
         'Registro de ciclo só em papel (Óxido de etileno e Peróxido de hidrogênio): será digitado ou integrado com o fabricante.',
-        'Postos que ainda registram só em papel (Limpeza (área suja) e Coleta e entrega (motorista)): prever computador, leitor ou celular.',
+        'Postos que ainda registram só em papel (Coleta e entrega (motorista) e Faturamento e escritório): prever computador, leitor ou celular.',
         'Rastreabilidade até o paciente depende de integração com os sistemas dos clientes (MV; Tasy).',
         expect.stringMatching(/^Há material processado em outra unidade/),
         expect.stringMatching(/perguntas? em branco/),
@@ -246,7 +277,29 @@ describe('síntese — pontos de atenção', () => {
   it('avisa sobre internet instável em cada unidade', () => {
     const answers = { 'ident.unidades': ['sao-luis', 'teresina'], '2.7@sao-luis': 'instavel', '2.7@teresina': 'estavel' }
     expect(attentionTexts(answers)).toContain('Internet instável em São Luís: o sistema deve tolerar quedas sem perder registros.')
-    expect(attentionTexts(answers).join(' ')).not.toMatch(/sem internet/)
+    expect(attentionTexts(answers).join(' ')).not.toMatch(/Sem internet boa parte/)
+  })
+
+  it('alerta quando as unidades chegam a ficar mais de um dia sem internet', () => {
+    const point = 'Unidades chegam a ficar mais de 1 dia sem internet: o modo offline precisa guardar dias de trabalho antes de sincronizar.'
+    expect(synthesize({ '2.13.tempo': 'dias' }, TODAY).attention).toContainEqual({ tone: 'alert', text: point })
+    expect(attentionTexts({ '2.13.tempo': '1dia' })).not.toContain(point)
+  })
+
+  it('registra o que as unidades dentro de hospitais precisam, sem cobrar enquanto não há resposta', () => {
+    const units = { 'ident.unidades': ['teresina', 'unimed-teresina', 'domu-sao-luis'] }
+    expect(attentionTexts(units).join(' ')).not.toMatch(/dentro de hospitais/)
+    expect(synthesize({ ...units, '7.8.fluxo': 'fluxo-proprio', '7.8.fluxo.oque': 'Recebe e devolve na hora' }, TODAY).attention).toContainEqual({
+      tone: 'info',
+      text: 'Unidades dentro de hospitais (Unimed Teresina e DOMU São Luís) precisam de um fluxo próprio (Recebe e devolve na hora).',
+    })
+    expect(attentionTexts({ ...units, '7.8.fluxo': 'fluxo-proprio' })).toContain(
+      'Unidades dentro de hospitais (Unimed Teresina e DOMU São Luís) precisam de um fluxo próprio.',
+    )
+    expect(attentionTexts({ ...units, '7.8.fluxo': 'mesmo-fluxo' })).toContain(
+      'Unidades dentro de hospitais (Unimed Teresina e DOMU São Luís) seguem o mesmo fluxo das unidades próprias.',
+    )
+    expect(attentionTexts({ 'ident.unidades': ['teresina'], '7.8.fluxo': 'fluxo-proprio' }).join(' ')).not.toMatch(/dentro de hospitais/)
   })
 
   it('alerta alta disponibilidade só quando a operação não pode parar nem por minutos', () => {
@@ -305,9 +358,9 @@ describe('síntese — pontos de atenção', () => {
   })
 
   it('conta como em branco só as perguntas visíveis', () => {
-    expect(attentionTexts({ 'ident.nome': 'Ana' })).toContain('44 perguntas em branco; a etapa com mais lacunas é "Sistemas e infraestrutura".')
+    expect(attentionTexts({ 'ident.nome': 'Ana' })).toContain('45 perguntas em branco; a etapa com mais lacunas é "Sistemas e infraestrutura".')
     const allHigh = { 'ident.nome': 'Ana', modulos: Object.fromEntries(MODULES.map((module) => [module.key, 'alta'])) }
-    expect(attentionTexts(allHigh)).toContain('68 perguntas em branco; a etapa com mais lacunas é "Detalhes dos módulos prioritários".')
+    expect(attentionTexts(allHigh)).toContain('70 perguntas em branco; a etapa com mais lacunas é "Detalhes dos módulos prioritários".')
   })
 })
 

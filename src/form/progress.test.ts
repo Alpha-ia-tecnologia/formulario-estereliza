@@ -35,8 +35,8 @@ const block = (sectionId: string, blockId: string): Block => {
 }
 
 describe('unidades atendidas', () => {
-  it('usa todas as unidades quando nenhuma foi marcada', () => {
-    expect(selectedUnits({})).toEqual(['sao-luis', 'teresina', 'maracanau', 'ananindeua'])
+  it('usa todas as unidades quando nenhuma foi marcada, com as dentro de hospitais por último', () => {
+    expect(selectedUnits({})).toEqual(['sao-luis', 'teresina', 'maracanau', 'ananindeua', 'unimed-teresina', 'domu-sao-luis'])
   })
 
   it('usa só as unidades marcadas, na ordem padrão e ignorando valores inválidos', () => {
@@ -75,11 +75,28 @@ describe('visibilidade condicional', () => {
     expect(isVisible(field('3.1.sistemas'), { '3.1': 'paciente' })).toBe(true)
   })
 
-  it('pergunta quem pode completar as respostas só quando alguém além de quem responde ajuda', () => {
-    expect(isVisible(field('ident.apoio.quem'), {})).toBe(false)
-    expect(isVisible(field('ident.apoio.quem'), { 'ident.apoio': ['nenhum'] })).toBe(false)
-    expect(isVisible(field('ident.apoio.quem'), { 'ident.apoio': ['qualidade'] })).toBe(true)
-    expect(isVisible(field('ident.apoio.quem'), { 'ident.apoio': ['nenhum', 'informatica'] })).toBe(true)
+  it('oferece o balcão entre as etapas sem internet só quando há unidade dentro de hospital', () => {
+    const values = (answers: Answers) => resolveOptions(field('2.13'), answers).map((option) => option.value)
+    expect(values({ 'ident.unidades': ['sao-luis'] })).not.toContain('balcao')
+    expect(values({ 'ident.unidades': ['sao-luis', 'unimed-teresina'] })).toContain('balcao')
+    expect(values({})).toContain('balcao')
+  })
+
+  it('pergunta sobre as unidades dentro de hospitais só quando alguma delas é atendida', () => {
+    expect(isVisible(field('7.8'), { 'ident.unidades': ['sao-luis', 'teresina'] })).toBe(false)
+    expect(isVisible(field('7.8.fluxo'), { 'ident.unidades': ['maracanau'] })).toBe(false)
+    expect(isVisible(field('7.8'), { 'ident.unidades': ['sao-luis', 'domu-sao-luis'] })).toBe(true)
+    expect(isVisible(field('7.8.fluxo'), { 'ident.unidades': ['unimed-teresina'] })).toBe(true)
+    // Sem unidades marcadas, todas valem — inclusive as dentro de hospitais.
+    expect(isVisible(field('7.8'), {})).toBe(true)
+  })
+
+  it('pergunta o que muda nas unidades dentro de hospitais só quando elas precisam de um fluxo próprio', () => {
+    const hospital = { 'ident.unidades': ['teresina', 'unimed-teresina'] }
+    expect(isVisible(field('7.8.fluxo.oque'), hospital)).toBe(false)
+    expect(isVisible(field('7.8.fluxo.oque'), { ...hospital, '7.8.fluxo': 'mesmo-fluxo' })).toBe(false)
+    expect(isVisible(field('7.8.fluxo.oque'), { ...hospital, '7.8.fluxo': 'fluxo-proprio' })).toBe(true)
+    expect(isVisible(field('7.8.fluxo.oque'), { 'ident.unidades': ['teresina'], '7.8.fluxo': 'fluxo-proprio' })).toBe(false)
   })
 
   it('mostra os detalhes de um módulo só quando ele está em prioridade alta', () => {
@@ -158,6 +175,19 @@ describe('pruneHidden', () => {
     expect(pruneHidden({ legado: 'x' })).toEqual({ legado: 'x' })
   })
 
+  it('tira da escolha as opções escondidas por outras respostas', () => {
+    const own = { 'ident.unidades': ['sao-luis'] }
+    expect(pruneHidden({ ...own, '2.13': ['coleta', 'balcao'] })).toEqual({ ...own, '2.13': ['coleta'] })
+    expect(pruneHidden({ ...own, '2.13': ['balcao'] })).toEqual(own)
+    expect(pruneHidden({ ...own, '2.13': ['balcao', 'outra:Portaria'] })).toEqual({ ...own, '2.13': ['outra:Portaria'] })
+    expect(pruneHidden({ '2.13': ['balcao'] })).toEqual({ '2.13': ['balcao'] })
+    expect(pruneHidden({ '2.1': ['producao'], '2.3': 'alguns', '2.3.quais': ['producao', 'financeiro'] })).toEqual({
+      '2.1': ['producao'],
+      '2.3': 'alguns',
+      '2.3.quais': ['producao'],
+    })
+  })
+
   it('não altera o objeto original', () => {
     const answers = { '4.6': 'nao', '4.6.quais': 'modelo X' }
     pruneHidden(answers)
@@ -221,12 +251,18 @@ describe('preenchimento', () => {
 
   it('mede perguntas por unidade pela fração de unidades respondidas', () => {
     const answers = { '2.7@sao-luis': 'estavel', '2.7@teresina': 'offline' }
-    expect(answerCompletion(field('2.7'), answers)).toBe(0.5)
+    expect(answerCompletion(field('2.7'), answers)).toBeCloseTo(2 / 6)
+    expect(answerCompletion(field('2.7'), { ...answers, 'ident.unidades': ['sao-luis', 'teresina', 'maracanau', 'ananindeua'] })).toBe(0.5)
     expect(answerCompletion(field('2.7'), { ...answers, 'ident.unidades': ['sao-luis', 'teresina'] })).toBe(1)
   })
 
   it('ignora a chave sem unidade em perguntas por unidade', () => {
     expect(answerCompletion(field('2.7'), { '2.7': 'estavel' })).toBe(0)
+  })
+
+  it('não conta como resposta uma opção escondida por outras respostas', () => {
+    expect(answerCompletion(field('2.13'), { 'ident.unidades': ['sao-luis'], '2.13': ['balcao'] })).toBe(0)
+    expect(answerCompletion(field('2.13'), { 'ident.unidades': ['sao-luis', 'domu-sao-luis'], '2.13': ['balcao'] })).toBe(1)
   })
 
   it('considera a pergunta respondida quando qualquer campo visível foi preenchido', () => {
@@ -247,7 +283,10 @@ describe('progresso', () => {
       '2.1': ['producao'],
       '2.7@sao-luis': 'estavel',
     }
-    expect(sectionProgress(getSection('sistemas')!, answers)).toEqual({ done: 1.5, total: 10, ratio: 0.15 })
+    expect(sectionProgress(getSection('sistemas')!, answers)).toEqual({ done: 1.5, total: 11, ratio: 1.5 / 11 })
+    // Sem unidade dentro de hospital, a pergunta 7.8 não aparece nem conta.
+    expect(sectionProgress(getSection('multiunidade')!, answers).total).toBe(7)
+    expect(sectionProgress(getSection('multiunidade')!, { ...answers, 'ident.unidades': ['sao-luis', 'unimed-teresina'] }).total).toBe(8)
   })
 
   it('não conta as perguntas de detalhe ocultas no progresso da etapa', () => {
@@ -260,9 +299,9 @@ describe('progresso', () => {
   it('calcula o progresso geral do formulário só com as perguntas visíveis', () => {
     const visibleTotal = (answers: Answers) => SECTIONS.reduce((sum, section) => sum + visibleBlocks(section, answers).length, 0)
     expect(overallProgress({}).done).toBe(0)
-    expect(overallProgress({}).total).toBe(45)
+    expect(overallProgress({}).total).toBe(46)
     expect(overallProgress({}).total).toBe(visibleTotal({}))
-    expect(overallProgress({ modulos: { coleta: 'alta' } }).total).toBe(47)
+    expect(overallProgress({ modulos: { coleta: 'alta' } }).total).toBe(48)
     expect(overallProgress({ 'ident.nome': 'Ana', '3.2': ['qr'] }).done).toBe(2)
   })
 

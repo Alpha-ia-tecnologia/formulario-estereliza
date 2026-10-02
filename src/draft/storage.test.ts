@@ -3,11 +3,14 @@ import { DRAFT_KEY, createDraft, loadDraft, removeDraft, saveDraft } from './sto
 const NOW = new Date('2026-09-28T12:00:00')
 
 describe('rascunho no navegador', () => {
-  it('cria um rascunho único com a data de hoje e todas as unidades marcadas', () => {
+  it('cria um rascunho único com a data de hoje e todas as unidades marcadas, inclusive as dentro de hospitais', () => {
     expect(createDraft(NOW)).toMatchObject({
-      version: 3,
+      version: 4,
       lastSection: 'identificacao',
-      answers: { 'ident.data': '2026-09-28', 'ident.unidades': ['sao-luis', 'teresina', 'maracanau', 'ananindeua'] },
+      answers: {
+        'ident.data': '2026-09-28',
+        'ident.unidades': ['sao-luis', 'teresina', 'maracanau', 'ananindeua', 'unimed-teresina', 'domu-sao-luis'],
+      },
     })
   })
 
@@ -17,8 +20,8 @@ describe('rascunho no navegador', () => {
     expect(loadDraft()).toEqual(draft)
   })
 
-  it('usa uma chave própria da versão 3', () => {
-    expect(DRAFT_KEY).toBe('steriliza-requisitos:v3')
+  it('usa uma chave própria da versão 4', () => {
+    expect(DRAFT_KEY).toBe('steriliza-requisitos:v4')
   })
 
   it('retorna null quando não há rascunho', () => {
@@ -32,11 +35,15 @@ describe('rascunho no navegador', () => {
     expect(loadDraft()).toBeNull()
   })
 
-  it('ignora um rascunho da versão 2, cujos ids têm outro significado', () => {
+  it('ignora rascunhos das versões 2 e 3, cujos ids têm outro significado', () => {
     const v2 = { ...createDraft(NOW), version: 2, answers: { 'ident.nome': 'Ana', '2.8@teresina': 'offline' } }
     localStorage.setItem(DRAFT_KEY, JSON.stringify(v2))
     localStorage.setItem('steriliza-requisitos:v2', JSON.stringify(v2))
+    expect(loadDraft()).toBeNull()
 
+    const v3 = { ...createDraft(NOW), version: 3, answers: { 'ident.nome': 'Ana', '2.8': 'nuvem' } }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(v3))
+    localStorage.setItem('steriliza-requisitos:v3', JSON.stringify(v3))
     expect(loadDraft()).toBeNull()
   })
 
@@ -49,9 +56,9 @@ describe('rascunho no navegador', () => {
   })
 
   it('completa datas e etapa ausentes ao carregar', () => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ version: 3, answers: {}, createdAt: '2026-09-01T10:00:00.000Z' }))
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ version: 4, answers: {}, createdAt: '2026-09-01T10:00:00.000Z' }))
     expect(loadDraft()).toEqual({
-      version: 3,
+      version: 4,
       answers: {},
       createdAt: '2026-09-01T10:00:00.000Z',
       updatedAt: '2026-09-01T10:00:00.000Z',

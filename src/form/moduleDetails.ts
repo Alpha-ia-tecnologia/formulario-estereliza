@@ -78,11 +78,35 @@ const BLOCKS: readonly Block[] = [
       ],
     }],
   }),
-  detail('recebimento', {
-    id: 'm.recebimento.1',
+  detail('frota', {
+    id: 'm.frota.1',
+    title: 'Quem acompanha os veículos, e o que o sistema deve avisar?',
+    fields: [
+      {
+        kind: 'multi', id: 'm.frota.1', label: 'Quem acompanha', options: [
+          { value: 'logistica', label: 'Logística, na tela do sistema' },
+          { value: 'cliente', label: 'O cliente, no portal' },
+          { value: 'gestor', label: 'Gestores, no painel de indicadores' },
+          { value: 'motorista', label: 'O motorista, no celular' },
+          NAO_SEI,
+        ],
+      },
+      {
+        kind: 'multi', id: 'm.frota.1.avisos', label: 'Avisar quando', options: [
+          { value: 'atraso', label: 'A coleta ou a entrega atrasar' },
+          { value: 'chegada', label: 'O veículo chegar ao cliente' },
+          { value: 'parada', label: 'O veículo parar fora da rota' },
+          { value: 'fim-rota', label: 'A rota do dia terminar' },
+          { value: 'nao', label: 'Não precisa de avisos' },
+        ],
+      },
+    ],
+  }),
+  detail('recebimento-preparo', {
+    id: 'm.recebimento-preparo.1',
     title: 'Como o material é conferido quando chega?',
     fields: [{
-      kind: 'multi', id: 'm.recebimento.1', options: [
+      kind: 'multi', id: 'm.recebimento-preparo.1', options: [
         { value: 'caixas', label: 'Conta as caixas contra o protocolo' },
         { value: 'kit', label: 'Confere kit por kit' },
         { value: 'peca', label: 'Confere peça por peça com a lista do kit' },
@@ -94,12 +118,12 @@ const BLOCKS: readonly Block[] = [
       ],
     }],
   }),
-  detail('recebimento', {
-    id: 'm.recebimento.2',
+  detail('recebimento-preparo', {
+    id: 'm.recebimento-preparo.2',
     title: 'O que a Steriliza faz em cada situação encontrada na chegada?',
     fields: [{
       kind: 'matrix',
-      id: 'm.recebimento.2',
+      id: 'm.recebimento-preparo.2',
       itemNoun: 'situações',
       items: [
         { key: 'falta-peca', label: 'Falta peça no kit' },
@@ -118,12 +142,12 @@ const BLOCKS: readonly Block[] = [
       ],
     }],
   }),
-  detail('preparo', {
-    id: 'm.preparo.1',
+  detail('recebimento-preparo', {
+    id: 'm.recebimento-preparo.3',
     title: 'Na montagem do kit, o que é conferido e registrado?',
     fields: [
       {
-        kind: 'multi', id: 'm.preparo.1', options: [
+        kind: 'multi', id: 'm.recebimento-preparo.3', options: [
           { value: 'checklist', label: 'Check-list das peças' },
           { value: 'quem-montou', label: 'Quem montou' },
           { value: 'dupla', label: 'Uma segunda pessoa confere' },
@@ -135,7 +159,7 @@ const BLOCKS: readonly Block[] = [
         ],
       },
       {
-        kind: 'single', id: 'm.preparo.1.incompleto', label: 'Quando o kit está incompleto', options: [
+        kind: 'single', id: 'm.recebimento-preparo.3.incompleto', label: 'Quando o kit está incompleto', options: [
           { value: 'completa', label: 'Completa com item da Steriliza' },
           { value: 'segue', label: 'Segue incompleto e avisa o cliente' },
           { value: 'retem', label: 'Fica retido até o cliente decidir' },
@@ -144,12 +168,12 @@ const BLOCKS: readonly Block[] = [
       },
     ],
   }),
-  detail('preparo', {
-    id: 'm.preparo.2',
+  detail('recebimento-preparo', {
+    id: 'm.recebimento-preparo.4',
     title: 'Como é definido o prazo de validade do material esterilizado?',
     fields: [
       {
-        kind: 'single', id: 'm.preparo.2', options: [
+        kind: 'single', id: 'm.recebimento-preparo.4', options: [
           { value: 'unico', label: 'Prazo único para tudo' },
           { value: 'embalagem', label: 'Depende da embalagem' },
           { value: 'embalagem-metodo', label: 'Depende da embalagem e do método' },
@@ -159,7 +183,7 @@ const BLOCKS: readonly Block[] = [
         ],
       },
       {
-        kind: 'single', id: 'm.preparo.2.vencido', label: 'Material vencido é reprocessado sem custo?', options: [
+        kind: 'single', id: 'm.recebimento-preparo.4.vencido', label: 'Material vencido é reprocessado sem custo?', options: [
           { value: 'sim', label: 'Sim' },
           { value: 'cobrado', label: 'Não, é cobrado' },
           { value: 'contrato', label: 'Depende do contrato' },

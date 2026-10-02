@@ -1,6 +1,6 @@
-import { CYCLE_EQUIPMENT, HIGH_PRIORITY_SOFT_LIMIT, SHARED_ITEMS, WORKSTATIONS } from './options'
+import { CYCLE_EQUIPMENT, HIGH_PRIORITY_SOFT_LIMIT, SHARED_ITEMS, WORKSTATIONS, isHospitalUnit, selectedUnits } from './options'
 import { blockCompletion, missingRequired, visibleBlocks } from './progress'
-import { cityOf, joinPt, recordOf, textLines, textOf, unitsWhere } from './read'
+import { joinPt, nameOf, recordOf, textLines, textOf, unitsWhere } from './read'
 import { SECTIONS } from './schema'
 import type { Answers, UnitId } from './types'
 
@@ -19,19 +19,37 @@ type Rule = (answers: Answers, today: Date) => AttentionPoint | null
 
 const alert = (text: string): AttentionPoint => ({ tone: 'alert', text })
 const info = (text: string): AttentionPoint => ({ tone: 'info', text })
-const cities = (units: readonly UnitId[]) => joinPt(units.map(cityOf))
+const names = (units: readonly UnitId[]) => joinPt(units.map(nameOf))
 
 const missingRespondent: Rule = (answers) =>
   missingRequired(answers).length > 0 ? alert('Falta informar quem respondeu — sem isso o pacote não pode ser gerado.') : null
 
 const offline: Rule = (answers) => {
   const units = unitsWhere(answers, '2.7', (values) => values.includes('offline'))
-  return units.length > 0 ? alert(`Precisa funcionar sem internet em ${cities(units)}: prever operação offline com sincronização.`) : null
+  return units.length > 0
+    ? alert(`Sem internet boa parte do tempo em ${names(units)}: a operação offline será a regra, com sincronização ao reconectar.`)
+    : null
 }
 
 const unstable: Rule = (answers) => {
   const units = unitsWhere(answers, '2.7', (values) => values.includes('instavel'))
-  return units.length > 0 ? alert(`Internet instável em ${cities(units)}: o sistema deve tolerar quedas sem perder registros.`) : null
+  return units.length > 0 ? alert(`Internet instável em ${names(units)}: o sistema deve tolerar quedas sem perder registros.`) : null
+}
+
+const longOutages: Rule = (answers) =>
+  answers['2.13.tempo'] === 'dias'
+    ? alert('Unidades chegam a ficar mais de 1 dia sem internet: o modo offline precisa guardar dias de trabalho antes de sincronizar.')
+    : null
+
+/** O que as unidades dentro de hospitais precisam no novo sistema, quando a Steriliza já respondeu. */
+const hospitalUnits: Rule = (answers) => {
+  const units = selectedUnits(answers).filter(isHospitalUnit)
+  if (units.length === 0) return null
+  const flow = answers['7.8.fluxo']
+  if (flow === 'mesmo-fluxo') return info(`Unidades dentro de hospitais (${names(units)}) seguem o mesmo fluxo das unidades próprias.`)
+  if (flow !== 'fluxo-proprio') return null
+  const what = textLines(answers, '7.8.fluxo.oque')
+  return info(`Unidades dentro de hospitais (${names(units)}) precisam de um fluxo próprio${what ? ` (${what})` : ''}.`)
 }
 
 const tooManyHigh: Rule = (answers) => {
@@ -103,6 +121,8 @@ const RULES: readonly Rule[] = [
   missingRespondent,
   offline,
   unstable,
+  longOutages,
+  hospitalUnits,
   availability,
   tooManyHigh,
   undecidedSharing,

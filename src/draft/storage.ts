@@ -1,16 +1,16 @@
 import { UNITS_FIELD_ID, UNIT_IDS } from '../form/options'
 import { isRecord } from '../form/progress'
-import { sanitizeAnswers } from '../form/sanitize'
+import { FORM_VERSION, sanitizeAnswers } from '../form/sanitize'
 import { SECTIONS } from '../form/schema'
 import type { Answers } from '../form/types'
 import { isoDay } from '../lib/files'
 
 /**
- * Rascunho único do formulário, que cobre todas as unidades. A versão acompanha
+ * Rascunho único do formulário, que cobre todas as unidades. A versão é a
  * FORM_VERSION: rascunhos de outra versão usam ids com outro significado e são descartados.
  */
 export interface Draft {
-  readonly version: 3
+  readonly version: typeof FORM_VERSION
   readonly answers: Answers
   readonly createdAt: string
   readonly updatedAt: string
@@ -19,7 +19,7 @@ export interface Draft {
 
 export type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
-export const DRAFT_KEY = 'steriliza-requisitos:v3'
+export const DRAFT_KEY = `steriliza-requisitos:v${FORM_VERSION}`
 const FIRST_SECTION_ID = SECTIONS[0]?.id ?? ''
 
 const defaultStorage = (): DraftStorage => window.localStorage
@@ -27,7 +27,7 @@ const defaultStorage = (): DraftStorage => window.localStorage
 export function createDraft(now: Date = new Date()): Draft {
   const timestamp = now.toISOString()
   return {
-    version: 3,
+    version: FORM_VERSION,
     answers: { 'ident.data': isoDay(now), [UNITS_FIELD_ID]: [...UNIT_IDS] },
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -42,10 +42,10 @@ export function loadDraft(storage: DraftStorage = defaultStorage()): Draft | nul
     const data: unknown = JSON.parse(raw)
     if (!isRecord(data)) return null
     const value = data as Record<string, unknown>
-    if (value.version !== 3) return null
+    if (value.version !== FORM_VERSION) return null
     const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString()
     return {
-      version: 3,
+      version: FORM_VERSION,
       answers: sanitizeAnswers(value.answers),
       createdAt,
       updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : createdAt,

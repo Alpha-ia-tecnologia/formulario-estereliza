@@ -43,7 +43,9 @@ describe('schema do formulário', () => {
     const numberOf = (sectionId: string, blockId: string) =>
       getSection(sectionId)?.blocks.find((block) => block.id === blockId)?.number
     expect(numberOf('sistemas', '2.7')).toBe('1.7')
-    expect(numberOf('sistemas', '2.10')).toBe('1.10')
+    expect(numberOf('sistemas', '2.10')).toBe('1.11')
+    expect(numberOf('sistemas', '2.13')).toBe('1.8')
+    expect(numberOf('multiunidade', '7.8')).toBe('6.8')
     expect(numberOf('rastreabilidade', '3.9')).toBe('2.9')
     expect(numberOf('acesso', '6.5')).toBe('5.5')
     expect(numberOf('multiunidade', '7.3')).toBe('6.3')
@@ -64,13 +66,54 @@ describe('schema do formulário', () => {
 
   it('tem a seção multiunidade depois de acesso, fechando o formulário', () => {
     expect(SECTIONS.map((section) => section.id).slice(-2)).toEqual(['acesso', 'multiunidade'])
-    expect(getSection('multiunidade')?.blocks).toHaveLength(7)
+    expect(getSection('multiunidade')?.blocks).toHaveLength(8)
   })
 
-  it('tem 25 perguntas de detalhe sem número, todas condicionadas à prioridade do módulo', () => {
+  it('não tem mais a hospedagem nem "quem pode completar as respostas"', () => {
+    for (const id of ['ident.apoio', 'ident.apoio.quem', '2.8']) expect(getField(id)).toBeUndefined()
+    expect(getSection('identificacao')?.blocks.map((block) => block.id)).not.toContain('ident.apoio')
+  })
+
+  it('pergunta sobre a Cobli e a operação sem internet na etapa de sistemas', () => {
+    for (const id of ['2.12', '2.12.frota', '2.13', '2.13.tempo']) expect(getField(id)).toBeDefined()
+    expect(getSection('sistemas')?.blocks.map((block) => block.id)).toEqual([
+      '2.1', '2.2', '2.3', '2.4', '2.5', '2.6', '2.7', '2.13', '2.9', '2.12', '2.10',
+    ])
+  })
+
+  it('fecha a etapa multiunidade com as unidades dentro de hospitais, para não abrir buraco na numeração quando some', () => {
+    for (const id of ['7.8', '7.8.fluxo', '7.8.fluxo.oque']) expect(getField(id)).toBeDefined()
+    const last = getSection('multiunidade')?.blocks.at(-1)
+    expect(last?.id).toBe('7.8')
+    expect(last?.fields.every((field) => field.when !== undefined)).toBe(true)
+  })
+
+  it('mostra 4 perguntas de detalhe para recebimento, limpeza e preparo e 1 para a frota', () => {
+    const details = getSection('detalhes')!
+    const idsFor = (key: string) => details.blocks.filter((block) => block.id.startsWith(`m.${key}.`)).map((block) => block.id)
+    expect(idsFor('recebimento-preparo')).toEqual([
+      'm.recebimento-preparo.1',
+      'm.recebimento-preparo.2',
+      'm.recebimento-preparo.3',
+      'm.recebimento-preparo.4',
+    ])
+    expect(idsFor('frota')).toEqual(['m.frota.1'])
+    expect(details.blocks.find((block) => block.id === 'm.frota.1')?.fields.map((field) => field.id)).toEqual(['m.frota.1', 'm.frota.1.avisos'])
+    for (const id of ['m.recebimento-preparo.3.incompleto', 'm.recebimento-preparo.4.vencido']) expect(getField(id)).toBeDefined()
+  })
+
+  it('junta recebimento, limpeza e preparo num módulo só e inclui o rastreamento da frota', () => {
+    const keys = MODULES.map((module) => module.key)
+    expect(keys).toHaveLength(13)
+    expect(keys).toEqual(expect.arrayContaining(['recebimento-preparo', 'frota']))
+    expect(keys).not.toEqual(expect.arrayContaining(['recebimento']))
+    expect(keys).not.toEqual(expect.arrayContaining(['preparo']))
+  })
+
+  it('tem 26 perguntas de detalhe sem número, todas condicionadas à prioridade do módulo', () => {
     const details = getSection('detalhes')!
     expect(details.title).toBe('Detalhes dos módulos prioritários')
-    expect(details.blocks).toHaveLength(25)
+    expect(details.blocks).toHaveLength(26)
     expect(details.blocks.every((block) => block.number === undefined)).toBe(true)
     expect(details.blocks.every((block) => block.fields.every((field) => field.when !== undefined))).toBe(true)
     const moduleKeys = new Set(details.blocks.map((block) => block.id.split('.')[1]))

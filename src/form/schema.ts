@@ -13,6 +13,7 @@ import {
   WORKSTATIONS,
   WORKSTATION_LEVELS,
   YES_NO,
+  hasHospitalUnit,
 } from './options'
 import type { Answers, Field, Option, Section } from './types'
 
@@ -32,6 +33,19 @@ const PAIN_POINTS: readonly Option[] = [
   { value: 'relatorios', label: 'Relatórios que faltam' },
   { value: 'falhas', label: 'Falhas frequentes' },
   { value: 'telas', label: 'Telas confusas' },
+]
+
+/** Etapas que podem precisar continuar funcionando sem internet (2.13). */
+const OFFLINE_SCOPES: readonly Option[] = [
+  { value: 'recebimento-preparo', label: 'Recebimento, limpeza e preparo' },
+  { value: 'esterilizacao', label: 'Esterilização e registro de ciclo' },
+  { value: 'liberacao', label: 'Liberação e etiquetas' },
+  { value: 'expedicao', label: 'Expedição e conferência de saída' },
+  { value: 'coleta', label: 'Coleta e entrega no celular do motorista' },
+  { value: 'balcao', label: 'Balcão das unidades dentro de hospitais' },
+  { value: 'consulta', label: 'Consulta de rastreabilidade' },
+  { value: 'tudo', label: 'Tudo que a operação usa' },
+  { value: 'nao-sei', label: 'Não sei' },
 ]
 
 /** Substituir sistemas implica decidir o que migrar. */
@@ -69,38 +83,13 @@ const RAW_SECTIONS: readonly Section[] = [
       {
         id: UNITS_FIELD_ID,
         title: 'Unidades que o novo sistema vai atender',
-        help: 'Todas vêm marcadas. As unidades operam igual; só a internet é perguntada unidade por unidade.',
+        help: 'Todas vêm marcadas. A Unimed (Teresina) e o DOMU (São Luís) funcionam dentro dos hospitais e operam como uma unidade cada. Só a internet é perguntada unidade por unidade.',
         fields: [{ kind: 'multi', id: UNITS_FIELD_ID, options: UNIT_OPTIONS }],
       },
       {
         id: 'ident.data',
         title: 'Data',
         fields: [{ kind: 'text', id: 'ident.data', inputType: 'date' }],
-      },
-      {
-        id: 'ident.apoio',
-        title: 'Em quais assuntos outra pessoa pode completar as respostas?',
-        help: 'Assim sabemos a quem perguntar o que ficar em branco.',
-        fields: [
-          {
-            kind: 'multi', id: 'ident.apoio', options: [
-              { value: 'qualidade', label: 'Qualidade/RT' },
-              { value: 'financeiro', label: 'Financeiro e faturamento' },
-              { value: 'logistica', label: 'Logística e coleta' },
-              { value: 'informatica', label: 'Informática' },
-              { value: 'comercial', label: 'Comercial e contratos' },
-              { value: 'nenhum', label: 'Respondo tudo sozinho(a)' },
-            ],
-          },
-          {
-            kind: 'text',
-            id: 'ident.apoio.quem',
-            label: 'Quem são (nome e contato)',
-            multiline: true,
-            placeholder: 'Ex.: Ana, qualidade — (98) 99999-9999',
-            when: (answers) => selected(answers, 'ident.apoio').some((value) => value !== 'nenhum'),
-          },
-        ],
       },
     ],
   },
@@ -230,26 +219,38 @@ const RAW_SECTIONS: readonly Section[] = [
         id: '2.7',
         number: '2.7',
         title: 'Internet em cada unidade',
-        help: 'Depende do local; é o que decide se o sistema precisa funcionar sem conexão.',
+        help: 'O sistema vai funcionar sem internet em todas as unidades; aqui queremos saber com que frequência isso vai acontecer.',
         fields: [{
           kind: 'single', id: '2.7', perUnit: true, options: [
             { value: 'estavel', label: 'Estável' },
             { value: 'instavel', label: 'Instável' },
-            { value: 'offline', label: 'Precisa funcionar sem internet' },
+            { value: 'offline', label: 'Sem internet boa parte do tempo' },
           ],
         }],
       },
       {
-        id: '2.8',
-        number: '2.8',
-        title: 'Hospedagem preferida para o novo sistema',
-        fields: [{
-          kind: 'single', id: '2.8', options: [
-            { value: 'nuvem', label: 'Nuvem' },
-            { value: 'servidor', label: 'Servidor central próprio' },
-            { value: 'indiferente', label: 'Sem preferência' },
-          ],
-        }],
+        id: '2.13',
+        number: '2.13',
+        title: 'O que precisa continuar funcionando sem internet?',
+        help: 'O sistema vai rodar na nuvem e continuar operando quando a internet cair; ao voltar a conexão, os dados são sincronizados e a base fica sempre atualizada. Marque o que não pode esperar a internet voltar.',
+        fields: [
+          {
+            kind: 'multi',
+            id: '2.13',
+            other: { label: 'Outro', prompt: 'O quê?' },
+            options: OFFLINE_SCOPES,
+            filterOptions: (options, answers) => (hasHospitalUnit(answers) ? options : options.filter((option) => option.value !== 'balcao')),
+          },
+          {
+            kind: 'single', id: '2.13.tempo', label: 'Por quanto tempo, no máximo, uma unidade costuma ficar sem internet?', options: [
+              { value: 'minutos', label: 'Minutos' },
+              { value: 'horas', label: 'Algumas horas' },
+              { value: '1dia', label: 'Até 1 dia' },
+              { value: 'dias', label: 'Mais de 1 dia' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+        ],
       },
       {
         id: '2.9',
@@ -264,10 +265,38 @@ const RAW_SECTIONS: readonly Section[] = [
             { value: 'whatsapp', label: 'WhatsApp' },
             { value: 'email', label: 'E-mail' },
             { value: 'ponto', label: 'Ponto e folha de pagamento' },
-            { value: 'rastreador', label: 'Rastreador dos veículos' },
+            { value: 'rastreador', label: 'Rastreador dos veículos (Cobli)' },
             { value: 'nao-sei', label: 'Não sei' },
           ],
         }],
+      },
+      {
+        id: '2.12',
+        number: '2.12',
+        title: 'Integração com a Cobli, o rastreador dos veículos',
+        help: 'A Cobli tem API: o módulo de rastreamento do novo sistema pode buscar os dados dela sem digitação.',
+        fields: [
+          {
+            kind: 'multi', id: '2.12', label: 'O que o sistema deve buscar na Cobli?', other: { label: 'Outro', prompt: 'O quê?' }, options: [
+              { value: 'posicao', label: 'Posição dos veículos em tempo real' },
+              { value: 'rotas', label: 'Rotas e paradas de cada dia' },
+              { value: 'chegada', label: 'Hora de chegada e de saída em cada cliente' },
+              { value: 'previsao', label: 'Previsão de chegada para avisar o cliente' },
+              { value: 'km', label: 'Quilometragem e consumo' },
+              { value: 'motorista', label: 'Motorista de cada veículo' },
+              { value: 'alertas', label: 'Alertas de desvio ou parada longa' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+          {
+            kind: 'single', id: '2.12.frota', label: 'Quais veículos têm rastreador da Cobli?', options: [
+              { value: 'todos', label: 'Todos' },
+              { value: 'parte', label: 'Só parte da frota' },
+              { value: 'nenhum', label: 'Nenhum ainda' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+        ],
       },
       {
         id: '2.10',
@@ -671,7 +700,7 @@ const RAW_SECTIONS: readonly Section[] = [
     id: 'multiunidade',
     number: '7',
     title: 'Operação multiunidade',
-    intro: 'Como as unidades convivem no mesmo sistema: o que é comum a todas, o que é de cada uma e quem enxerga o quê.',
+    intro: 'Como as unidades convivem no mesmo sistema: o que é comum a todas, o que é de cada uma, quem enxerga o quê e como entram as unidades dentro de hospitais.',
     blocks: [
       {
         id: '7.1',
@@ -758,6 +787,51 @@ const RAW_SECTIONS: readonly Section[] = [
             label: 'Onde?',
             placeholder: 'Cidades ou regiões previstas',
             when: oneOf('7.7', ['proximo-ano', 'sem-data']),
+          },
+        ],
+      },
+      {
+        // Última pergunta da última etapa: quando fica oculta, não abre buraco na numeração.
+        id: '7.8',
+        number: '7.8',
+        title: 'Unidades dentro de hospitais',
+        help: 'A Unimed (Teresina) e o DOMU (São Luís) funcionam dentro dos hospitais, e cada uma opera como uma unidade. Hoje, nelas, a produção e o financeiro rodam no mesmo sistema do balcão.',
+        fields: [
+          {
+            kind: 'multi',
+            id: '7.8',
+            label: 'O que o balcão faz hoje nessas unidades?',
+            other: { label: 'Outro', prompt: 'O quê?' },
+            when: hasHospitalUnit,
+            options: [
+              { value: 'recebe-devolve', label: 'Recebe e devolve o material' },
+              { value: 'producao', label: 'Registra a produção' },
+              { value: 'ciclos', label: 'Registra os ciclos' },
+              { value: 'etiquetas', label: 'Imprime etiquetas' },
+              { value: 'financeiro', label: 'Lança o financeiro' },
+              { value: 'fatura', label: 'Fatura ao hospital' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+          {
+            kind: 'single',
+            id: '7.8.fluxo',
+            label: 'No novo sistema, essas unidades precisam de',
+            when: hasHospitalUnit,
+            options: [
+              { value: 'mesmo-fluxo', label: 'O mesmo fluxo das unidades próprias' },
+              { value: 'fluxo-proprio', label: 'Um fluxo próprio' },
+              { value: 'nao-sei', label: 'Não sei' },
+            ],
+          },
+          {
+            kind: 'text',
+            id: '7.8.fluxo.oque',
+            label: 'O que muda nessas unidades?',
+            multiline: true,
+            when: (answers) => hasHospitalUnit(answers) && answers['7.8.fluxo'] === 'fluxo-proprio',
+            placeholder: 'Ex.: o balcão recebe, processa e devolve na hora, sem coleta',
+            suggestions: ['Recebe e devolve na hora, sem coleta', 'Só o hospital como cliente', 'Faturamento direto ao hospital', 'Balcão, produção e financeiro numa tela só'],
           },
         ],
       },

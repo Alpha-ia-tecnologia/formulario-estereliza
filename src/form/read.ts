@@ -42,7 +42,8 @@ export function joinPt(items: readonly string[]): string {
   return `${filled.slice(0, -1).join(', ')} e ${filled.at(-1)}`
 }
 
-export const cityOf = (unit: UnitId): string => getUnit(unit).city
+/** Nome exibido da unidade: a cidade, ou hospital e cidade nas unidades dentro de hospitais. */
+export const nameOf = (unit: UnitId): string => getUnit(unit).name
 
 /** Rótulo legível de um valor de escolha, inclusive "Outra: texto". */
 export function choiceLabel(fieldId: string, value: string): string {
@@ -92,7 +93,7 @@ export function groupByAnswer(answers: Answers, fieldId: string): string {
   }
   return [...groups]
     .map(([label, where]) =>
-      where.length === units.length && units.length > 1 ? `${label} em todas as unidades` : `${label} em ${joinPt(where.map(cityOf))}`,
+      where.length === units.length && units.length > 1 ? `${label} em todas as unidades` : `${label} em ${joinPt(where.map(nameOf))}`,
     )
     .join('; ')
 }

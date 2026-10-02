@@ -4,7 +4,7 @@ import type { Attachment } from './attachments'
 import { JSON_NAME, MARKDOWN_NAME, buildExportJson, buildPackage, downloadBlob, readPackage, reconcileDocuments } from './package'
 
 const NOW = new Date('2026-09-28T12:00:00')
-const HEADER = { formulario: 'steriliza-requisitos', versao: 3 }
+const HEADER = { formulario: 'steriliza-requisitos', versao: 4 }
 
 const attachment = (docKey: string, name: string, content: string): Attachment => ({
   id: `${docKey}-${name}-${content}`,
@@ -42,7 +42,8 @@ describe('buildExportJson', () => {
       answers: {
         'ident.nome': 'Ana',
         'ident.unidades': ['sao-luis', 'teresina'],
-        '2.8': 'nuvem',
+        '2.13.tempo': 'horas',
+        '7.8': ['producao'],
         '2.7@sao-luis': 'offline',
         '2.7@maracanau': 'estavel',
         '4.6': 'nao',
@@ -53,19 +54,23 @@ describe('buildExportJson', () => {
     })
     expect(json).toMatchObject({
       formulario: 'steriliza-requisitos',
-      versao: 3,
+      versao: 4,
       unidades: ['São Luís — MA', 'Teresina — PI'],
       anexos: [{ documento: 'formularios', nome: 'planilha.xlsx', bytes: 3 }],
     })
+    // Sem unidade dentro de hospital, a pergunta 7.8 fica oculta e a resposta dela não sai.
     expect(json.respostas).toEqual({
       'ident.nome': 'Ana',
       'ident.unidades': ['sao-luis', 'teresina'],
-      '2.8': 'nuvem',
+      '2.13.tempo': 'horas',
       '2.7@sao-luis': 'offline',
       '4.6': 'nao',
     })
-    expect(json.resumo.find((row) => row.numero === '1.8')?.resposta).toBe('Nuvem')
-    expect(json.resumo.find((row) => row.numero === '1.7')?.resposta).toBe('São Luís: Precisa funcionar sem internet')
+    expect(json.resumo.find((row) => row.numero === '1.8')?.resposta).toBe(
+      'Por quanto tempo, no máximo, uma unidade costuma ficar sem internet?: Algumas horas',
+    )
+    expect(json.resumo.find((row) => row.numero === '1.7')?.resposta).toBe('São Luís: Sem internet boa parte do tempo')
+    expect(json.resumo.some((row) => row.numero === '6.8')).toBe(false)
     expect(json.resumo.find((row) => row.numero === '2.2')?.resposta).toBeNull()
     expect(json.resumo.some((row) => row.secao === 'Detalhes dos módulos prioritários')).toBe(false)
   })
@@ -101,7 +106,7 @@ describe('buildExportJson', () => {
     })
     expect(json.sintese.headline).toMatch(/^Levantamento de requisitos da Steriliza para 1 unidade \(Teresina\), respondido por Ana/)
     expect(json.sintese.attention.map((point) => point.text)).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^Precisa funcionar sem internet em Teresina/)]),
+      expect.arrayContaining([expect.stringMatching(/^Sem internet boa parte do tempo em Teresina/)]),
     )
     expect(json.sintese.attention.some((point) => point.text.includes('São Luís'))).toBe(false)
   })
@@ -141,12 +146,12 @@ describe('pacote .zip', () => {
   })
 
   it('importa um respostas.json avulso', async () => {
-    const json = JSON.stringify({ ...HEADER, respostas: { '2.8': 'nuvem' } })
-    expect(await readPackage(asFile(new Blob([json]), 'respostas.json'))).toEqual({ answers: { '2.8': 'nuvem' }, files: [] })
+    const json = JSON.stringify({ ...HEADER, respostas: { '2.13.tempo': 'horas' } })
+    expect(await readPackage(asFile(new Blob([json]), 'respostas.json'))).toEqual({ answers: { '2.13.tempo': 'horas' }, files: [] })
   })
 
-  it('recusa um respostas.json da versão 2', async () => {
-    const json = JSON.stringify({ ...HEADER, versao: 2, respostas: { '2.8@teresina': 'offline' } })
+  it('recusa um respostas.json da versão 3, em que 2.8 era a hospedagem', async () => {
+    const json = JSON.stringify({ ...HEADER, versao: 3, respostas: { '2.8': 'nuvem' } })
     await expect(readPackage(asFile(new Blob([json]), 'respostas.json'))).rejects.toThrow(
       'Este arquivo é de uma versão anterior do formulário e não pode ser importado.',
     )

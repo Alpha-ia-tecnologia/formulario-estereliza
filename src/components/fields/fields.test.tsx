@@ -127,12 +127,14 @@ describe('perguntas por unidade', () => {
     const internet = questionOf(/Internet em cada unidade/)
     await user.click(within(within(internet).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Instável' }))
     await user.click(
-      within(within(internet).getByRole('radiogroup', { name: /^Teresina/ })).getByRole('radio', { name: 'Precisa funcionar sem internet' }),
+      within(within(internet).getByRole('radiogroup', { name: /^Teresina/ })).getByRole('radio', { name: 'Sem internet boa parte do tempo' }),
     )
+    await user.click(within(within(internet).getByRole('radiogroup', { name: /^Unimed Teresina/ })).getByRole('radio', { name: 'Estável' }))
 
     await waitFor(() => {
       expect(savedAnswers()['2.7@sao-luis']).toBe('instavel')
       expect(savedAnswers()['2.7@teresina']).toBe('offline')
+      expect(savedAnswers()['2.7@unimed-teresina']).toBe('estavel')
     })
     expect(within(within(internet).getByRole('radiogroup', { name: /^São Luís/ })).getByRole('radio', { name: 'Instável' })).toBeChecked()
   })
@@ -142,9 +144,11 @@ describe('perguntas por unidade', () => {
     const internet = questionOf(/Internet em cada unidade/)
     await user.click(within(internet).getByRole('button', { name: 'Repetir a resposta de São Luís nas demais unidades' }))
 
-    await waitFor(() => expect(savedAnswers()['2.7@ananindeua']).toBe('offline'))
+    await waitFor(() => expect(savedAnswers()['2.7@domu-sao-luis']).toBe('offline'))
     expect(savedAnswers()['2.7@teresina']).toBe('offline')
     expect(savedAnswers()['2.7@maracanau']).toBe('offline')
+    expect(savedAnswers()['2.7@ananindeua']).toBe('offline')
+    expect(savedAnswers()['2.7@unimed-teresina']).toBe('offline')
     expect(within(internet).queryByRole('button', { name: /Repetir/ })).not.toBeInTheDocument()
   })
 
@@ -236,29 +240,50 @@ describe('perguntas condicionais', () => {
     await waitFor(() => expect(savedAnswers()['3.1.sistemas']).toBe('Tasy'))
   })
 
-  it('pergunta quem pode completar as respostas só quando outra pessoa ajuda', async () => {
-    const user = openSection('identificacao')
-    const who = { name: 'Quem são (nome e contato)' }
-    const support = within(questionOf(/Em quais assuntos outra pessoa pode completar/))
-    expect(screen.queryByRole('textbox', who)).not.toBeInTheDocument()
+  it('não pergunta mais quem pode completar as respostas', () => {
+    openSection('identificacao')
+    expect(questionOf(/Respondido por/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /outra pessoa pode completar/ })).not.toBeInTheDocument()
+  })
 
-    await user.click(support.getByRole('checkbox', { name: 'Respondo tudo sozinho(a)' }))
-    expect(screen.queryByRole('textbox', who)).not.toBeInTheDocument()
+  it('só oferece o balcão entre as etapas sem internet quando uma unidade dentro de hospital é atendida', () => {
+    openSection('sistemas', { 'ident.unidades': ['sao-luis', 'teresina'] })
+    expect(questionOf(/O que precisa continuar funcionando sem internet/)).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'Balcão das unidades dentro de hospitais' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /Unidades dentro de hospitais/ })).not.toBeInTheDocument()
+  })
 
-    await user.click(support.getByRole('checkbox', { name: 'Informática' }))
-    await user.type(screen.getByRole('textbox', who), 'Rui, TI')
-    await waitFor(() => expect(savedAnswers()['ident.apoio.quem']).toBe('Rui, TI'))
-    expect(savedAnswers()['ident.apoio']).toEqual(['informatica', 'nenhum'])
+  it('oferece o balcão entre as etapas sem internet com todas as unidades marcadas', () => {
+    openSection('sistemas')
+    expect(screen.getByRole('checkbox', { name: 'Balcão das unidades dentro de hospitais' })).toBeInTheDocument()
+  })
+
+  it('pergunta sobre as unidades dentro de hospitais só quando alguma delas é atendida', () => {
+    openSection('multiunidade', { 'ident.unidades': ['sao-luis', 'teresina'] })
+    expect(questionOf(/Há previsão de novas unidades/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /Unidades dentro de hospitais/ })).not.toBeInTheDocument()
+  })
+
+  it('registra o que o balcão faz nas unidades dentro de hospitais e o que muda nelas', async () => {
+    const user = openSection('multiunidade')
+    const hospital = within(questionOf(/^6\.8\s*Unidades dentro de hospitais$/))
+    await user.click(hospital.getByRole('checkbox', { name: 'Registra a produção' }))
+    expect(hospital.queryByRole('textbox', { name: 'O que muda nessas unidades?' })).not.toBeInTheDocument()
+    await user.click(hospital.getByRole('radio', { name: 'Um fluxo próprio' }))
+    await user.type(hospital.getByRole('textbox', { name: 'O que muda nessas unidades?' }), 'Recebe e devolve na hora')
+    await waitFor(() => expect(savedAnswers()['7.8.fluxo.oque']).toBe('Recebe e devolve na hora'))
+    expect(savedAnswers()['7.8']).toEqual(['producao'])
+    expect(savedAnswers()['7.8.fluxo']).toBe('fluxo-proprio')
   })
 })
 
 describe('escolhas', () => {
   it('permite limpar uma escolha única', async () => {
     const user = openSection('sistemas')
-    await user.click(screen.getByRole('radio', { name: 'Nuvem' }))
-    const hosting = questionOf(/Hospedagem preferida/)
-    await user.click(within(hosting).getByRole('button', { name: 'Limpar escolha' }))
-    expect(screen.getByRole('radio', { name: 'Nuvem' })).not.toBeChecked()
+    await user.click(screen.getByRole('radio', { name: 'Algumas horas' }))
+    const offline = questionOf(/O que precisa continuar funcionando sem internet/)
+    await user.click(within(offline).getByRole('button', { name: 'Limpar escolha' }))
+    expect(screen.getByRole('radio', { name: 'Algumas horas' })).not.toBeChecked()
   })
 
   it('desmarca itens da múltipla escolha', async () => {
@@ -401,7 +426,7 @@ describe('campos de texto', () => {
 
 describe('matrizes', () => {
   it('conta os níveis e alerta quando há módulos demais em alta', async () => {
-    const answers = { modulos: { cadastros: 'alta', coleta: 'alta', recebimento: 'alta', preparo: 'alta', esterilizacao: 'alta' } }
+    const answers = { modulos: { cadastros: 'alta', coleta: 'alta', frota: 'alta', 'recebimento-preparo': 'alta', esterilizacao: 'alta' } }
     const user = openSection('modulos', answers)
     expect(screen.queryByText(/módulos em prioridade alta/)).not.toBeInTheDocument()
 
@@ -475,8 +500,8 @@ describe('numeração', () => {
     expect(screen.getByRole('heading', { level: 1, name: '1. Sistemas e infraestrutura' })).toBeInTheDocument()
     expect(questionOf(/^1\.7\s*Internet em cada unidade$/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('radio', { name: 'Nuvem' }))
-    await waitFor(() => expect(savedAnswers()['2.8']).toBe('nuvem'))
+    await user.click(screen.getByRole('radio', { name: 'Algumas horas' }))
+    await waitFor(() => expect(savedAnswers()['2.13.tempo']).toBe('horas'))
   })
 
   it('mostra a etapa de detalhes sem número', () => {

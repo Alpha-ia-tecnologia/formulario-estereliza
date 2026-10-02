@@ -106,9 +106,9 @@ function fieldEntries(field: Field, answers: Answers, showLabel: boolean): reado
     return [{ label: showLabel ? field.label : undefined, text: formatFieldValue(field, answers[field.id]) }]
   }
   return selectedUnits(answers).map((unit) => {
-    const { city } = getUnit(unit)
+    const { name } = getUnit(unit)
     return {
-      label: showLabel && field.label ? `${field.label} · ${city}` : city,
+      label: showLabel && field.label ? `${field.label} · ${name}` : name,
       text: formatFieldValue(field, answers[unitKey(field.id, unit)]),
     }
   })

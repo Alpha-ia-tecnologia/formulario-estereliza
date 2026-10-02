@@ -102,11 +102,11 @@
   font-size: var(--text-xl);
 }
 
-/* As quatro unidades como partes de um mesmo sistema */
+/* As unidades, próprias e dentro de hospitais, como partes de um mesmo sistema */
 .tenant-grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;

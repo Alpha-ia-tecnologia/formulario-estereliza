@@ -52,17 +52,17 @@ function NumberTable({ field, units, answers, labelledBy, onChange }: NumberTabl
         </thead>
         <tbody>
           {records.map(({ unit, key, record }) => {
-            const { city } = getUnit(unit)
+            const { name } = getUnit(unit)
             return (
               <tr key={unit}>
-                <th scope="row">{city}</th>
+                <th scope="row">{name}</th>
                 {field.items.map((item) => (
                   <td key={item.key}>
                     <input
                       className="input input--number input--cell"
                       inputMode="numeric"
                       placeholder="0"
-                      aria-label={`${item.label} — ${city}`}
+                      aria-label={`${item.label} — ${name}`}
                       value={record[item.key] ?? ''}
                       onChange={(event) => onChange(key, compactRecord({ ...record, [item.key]: onlyDigits(event.target.value) }))}
                     />
@@ -116,11 +116,11 @@ export function PerUnitField({ field, answers, labelledBy, onChange }: PerUnitFi
       {units.map((unit, index) => {
         const key = unitKey(field.id, unit)
         const laneId = `${key}-unidade`
-        const { city, state } = getUnit(unit)
+        const { name, state } = getUnit(unit)
         return (
           <div key={unit} className="unit-lane" style={{ animationDelay: `${index * 45}ms` }}>
             <span id={laneId} className="unit-lane__name">
-              {city} <span className="unit-lane__state">{state}</span>
+              {name} <span className="unit-lane__state">{state}</span>
             </span>
             <FieldInput
               field={{ ...field, id: key }}
@@ -135,7 +135,7 @@ export function PerUnitField({ field, answers, labelledBy, onChange }: PerUnitFi
       {canRepeat && first && (
         <button type="button" className="suggestion unit-lanes__repeat" onClick={repeatFirst}>
           <SparkIcon width={16} height={16} />
-          <span>Repetir a resposta de {getUnit(first).city} nas demais unidades</span>
+          <span>Repetir a resposta de {getUnit(first).name} nas demais unidades</span>
         </button>
       )}
     </div>

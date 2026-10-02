@@ -1,4 +1,5 @@
 import { DOCUMENT_STATUSES, isUnitId, selectedUnits, unitKey } from './options'
+import { isOtherValue } from './other'
 import { ALL_FIELDS, SECTIONS, getField } from './schema'
 import type { AnswerValue, Answers, Block, Field, Option, Section } from './types'
 
@@ -64,11 +65,25 @@ export function fieldCompletion(field: Field, value: AnswerValue | undefined): n
   }
 }
 
+/**
+ * Valor de escolha sem as opções que outras respostas escondem (ex.: "Balcão" sem
+ * unidade dentro de hospital): o que não está na lista exibida não vale como resposta.
+ */
+export function pruneChoice(field: Field, value: AnswerValue | undefined, answers: Answers): AnswerValue | undefined {
+  if ((field.kind !== 'single' && field.kind !== 'multi') || !field.filterOptions) return value
+  const allowed = new Set(resolveOptions(field, answers).map((option) => option.value))
+  const isAllowed = (item: string) => allowed.has(item) || isOtherValue(item)
+  if (typeof value === 'string') return isAllowed(value) ? value : undefined
+  if (!Array.isArray(value)) return value
+  const kept = value.filter(isAllowed)
+  return kept.length > 0 ? kept : undefined
+}
+
 /** Preenchimento de um campo; nas perguntas por unidade, a média entre as unidades atendidas. */
 export function answerCompletion(field: Field, answers: Answers): number {
-  if (!field.perUnit) return fieldCompletion(field, answers[field.id])
+  if (!field.perUnit) return fieldCompletion(field, pruneChoice(field, answers[field.id], answers))
   const units = selectedUnits(answers)
-  const sum = units.reduce((total, unit) => total + fieldCompletion(field, answers[unitKey(field.id, unit)]), 0)
+  const sum = units.reduce((total, unit) => total + fieldCompletion(field, pruneChoice(field, answers[unitKey(field.id, unit)], answers)), 0)
   return sum / units.length
 }
 
@@ -132,18 +147,20 @@ export function splitAnswerKey(key: string): { readonly fieldId: string; readonl
 }
 
 /**
- * Cópia só com o que vale exportar: sem campos ocultos e sem respostas de
- * unidades que não estão marcadas.
+ * Cópia só com o que vale exportar: sem campos ocultos, sem respostas de
+ * unidades que não estão marcadas e sem opções escondidas por outras respostas.
  */
 export function pruneHidden(answers: Answers): Answers {
   const units: readonly string[] = selectedUnits(answers)
   return Object.fromEntries(
-    Object.entries(answers).filter(([key]) => {
+    Object.entries(answers).flatMap(([key, value]): [string, AnswerValue | undefined][] => {
       const { fieldId, unit } = splitAnswerKey(key)
       const field = getField(fieldId)
-      if (!field) return true
-      if (!isVisible(field, answers)) return false
-      return unit === undefined ? true : isUnitId(unit) && units.includes(unit)
+      if (!field) return [[key, value]]
+      if (!isVisible(field, answers)) return []
+      if (unit !== undefined && !(isUnitId(unit) && units.includes(unit))) return []
+      const pruned = pruneChoice(field, value, answers)
+      return pruned === undefined ? [] : [[key, pruned]]
     }),
   )
 }

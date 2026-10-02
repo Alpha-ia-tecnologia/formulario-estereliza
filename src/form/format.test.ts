@@ -127,7 +127,7 @@ describe('resumo', () => {
     expect(block.answered).toBe(true)
     expect(block.number).toBe('1.7')
     expect(block.entries).toEqual([
-      { label: 'São Luís', text: 'Precisa funcionar sem internet' },
+      { label: 'São Luís', text: 'Sem internet boa parte do tempo' },
       { label: 'Teresina', text: null },
     ])
   })
@@ -148,9 +148,19 @@ describe('resumo', () => {
 
   it('omite campos ocultos do resumo', () => {
     expect(findBlock({ '4.6': 'nao', '4.6.quais': 'modelo antigo' }, '4.6').entries).toEqual([{ label: undefined, text: 'Não' }])
-    expect(findBlock({ 'ident.apoio': ['nenhum'], 'ident.apoio.quem': 'Ana' }, 'ident.apoio').entries).toEqual([
-      { label: undefined, text: 'Respondo tudo sozinho(a)' },
+  })
+
+  it('nomeia as unidades dentro de hospitais pelo hospital nas perguntas por unidade', () => {
+    const block = findBlock({ 'ident.unidades': ['teresina', 'unimed-teresina'], '2.7@unimed-teresina': 'instavel' }, '2.7')
+    expect(block.entries).toEqual([
+      { label: 'Teresina', text: null },
+      { label: 'Unimed Teresina', text: 'Instável' },
     ])
+  })
+
+  it('omite a pergunta das unidades dentro de hospitais quando nenhuma delas é atendida', () => {
+    expect(findBlock({ 'ident.unidades': ['sao-luis'], '7.8': ['producao'] }, '7.8')).toBeUndefined()
+    expect(findBlock({ 'ident.unidades': ['domu-sao-luis'], '7.8': ['producao'] }, '7.8').entries[0]?.text).toBe('Registra a produção')
   })
 
   it('deixa de fora a etapa de detalhes quando nenhum módulo está em prioridade alta', () => {
@@ -183,6 +193,11 @@ describe('resumo', () => {
     const sections = summarize({})
     expect(sections.map((section) => section.number ?? '-')).toEqual(['-', '1', '2', '3', '4', '5', '6'])
     expect(sections.find((section) => section.id === 'multiunidade')!.blocks.map((block) => block.number)).toEqual([
+      '6.1', '6.2', '6.3', '6.4', '6.5', '6.6', '6.7', '6.8',
+    ])
+    // Sem unidade dentro de hospital, a última pergunta some sem abrir buraco na numeração.
+    const own = summarize({ 'ident.unidades': ['sao-luis'] })
+    expect(own.find((section) => section.id === 'multiunidade')!.blocks.map((block) => block.number)).toEqual([
       '6.1', '6.2', '6.3', '6.4', '6.5', '6.6', '6.7',
     ])
   })
@@ -194,10 +209,10 @@ describe('resumo', () => {
   it('gera markdown legível com as unidades e as respostas', () => {
     const markdown = toMarkdown({
       exportedAt: '2026-09-28T10:00:00.000Z',
-      answers: { 'ident.nome': 'Ana', 'ident.unidades': ['sao-luis', 'teresina'], '2.2.bem': ['relatorios'], '2.7@teresina': 'instavel' },
+      answers: { 'ident.nome': 'Ana', 'ident.unidades': ['sao-luis', 'teresina', 'unimed-teresina'], '2.2.bem': ['relatorios'], '2.7@teresina': 'instavel' },
     })
     expect(markdown).toContain('# Formulário de requisitos — Sistema Steriliza')
-    expect(markdown).toContain('**Unidades atendidas:** São Luís — MA, Teresina — PI')
+    expect(markdown).toContain('**Unidades atendidas:** São Luís — MA, Teresina — PI, Unimed Teresina — PI')
     expect(markdown).toContain('**Exportado em:** 28/09/2026')
     expect(markdown).toContain('## Identificação')
     expect(markdown).toContain('## 6. Operação multiunidade')

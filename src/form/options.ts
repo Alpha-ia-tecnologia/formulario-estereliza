@@ -1,15 +1,26 @@
 import type { Answers, Item, Option, Unit, UnitId } from './types'
 
+/**
+ * Unidades próprias e, por último, as que funcionam dentro de um hospital
+ * (Unimed em Teresina e DOMU em São Luís): cada uma opera como uma unidade e,
+ * hoje, produção e financeiro rodam no mesmo sistema do balcão.
+ */
 export const UNITS: readonly Unit[] = [
-  { id: 'sao-luis', city: 'São Luís', state: 'MA' },
-  { id: 'teresina', city: 'Teresina', state: 'PI' },
-  { id: 'maracanau', city: 'Maracanaú', state: 'CE' },
-  { id: 'ananindeua', city: 'Ananindeua', state: 'PA' },
+  { id: 'sao-luis', name: 'São Luís', state: 'MA' },
+  { id: 'teresina', name: 'Teresina', state: 'PI' },
+  { id: 'maracanau', name: 'Maracanaú', state: 'CE' },
+  { id: 'ananindeua', name: 'Ananindeua', state: 'PA' },
+  { id: 'unimed-teresina', name: 'Unimed Teresina', state: 'PI', hospital: 'Unimed' },
+  { id: 'domu-sao-luis', name: 'DOMU São Luís', state: 'MA', hospital: 'DOMU' },
 ]
 
 export const UNIT_IDS: readonly UnitId[] = UNITS.map((unit) => unit.id)
 
-export const UNIT_OPTIONS: readonly Option[] = UNITS.map((unit) => ({ value: unit.id, label: `${unit.city} — ${unit.state}` }))
+export const UNIT_OPTIONS: readonly Option[] = UNITS.map((unit) => ({
+  value: unit.id,
+  label: `${unit.name} — ${unit.state}`,
+  ...(unit.hospital ? { hint: 'Dentro do hospital' } : {}),
+}))
 
 export function isUnitId(value: unknown): value is UnitId {
   return typeof value === 'string' && (UNIT_IDS as readonly string[]).includes(value)
@@ -22,9 +33,14 @@ export function getUnit(id: UnitId): Unit {
 }
 
 export function unitLabel(id: UnitId): string {
-  const { city, state } = getUnit(id)
-  return `${city} — ${state}`
+  const { name, state } = getUnit(id)
+  return `${name} — ${state}`
 }
+
+export const isHospitalUnit = (id: UnitId): boolean => getUnit(id).hospital !== undefined
+
+/** Há alguma unidade dentro de hospital entre as atendidas. */
+export const hasHospitalUnit = (answers: Answers): boolean => selectedUnits(answers).some(isHospitalUnit)
 
 /** Pergunta da identificação que define quais unidades o sistema vai atender. */
 export const UNITS_FIELD_ID = 'ident.unidades'
@@ -56,8 +72,12 @@ export const CURRENT_SYSTEMS: readonly Option[] = [
 export const MODULES: readonly Item[] = [
   { key: 'cadastros', label: 'Cadastros', description: 'Clientes, contratos, kits, equipamentos, usuários' },
   { key: 'coleta', label: 'Coleta e entrega', description: 'Pedidos de coleta, rotas, protocolo com assinatura digital' },
-  { key: 'recebimento', label: 'Recebimento e triagem', description: 'Conferência, divergências, recusa de itens' },
-  { key: 'preparo', label: 'Preparo e embalagem', description: 'Montagem de kits, responsável, validade' },
+  { key: 'frota', label: 'Rastreamento da frota', description: 'Veículos no mapa, rotas e previsão de chegada pela API da Cobli' },
+  {
+    key: 'recebimento-preparo',
+    label: 'Recebimento, limpeza e preparo',
+    description: 'Conferência e triagem, divergências, limpeza, montagem de kits, embalagem, validade',
+  },
   { key: 'esterilizacao', label: 'Esterilização', description: 'Montagem de carga, ciclos, parâmetros, aeração do ETO' },
   { key: 'qualidade', label: 'Qualidade e liberação', description: 'Indicadores, liberação de lote, não conformidades, recolhimento' },
   { key: 'etiquetas', label: 'Etiquetas e rastreabilidade', description: 'Código de barras ou QR code, histórico completo do item' },
@@ -132,9 +152,7 @@ export const CYCLE_RECORD_LEVELS: readonly Option[] = [
 
 /** Postos de trabalho da operação (2.6). */
 export const WORKSTATIONS: readonly Item[] = [
-  { key: 'recebimento', label: 'Recebimento e triagem' },
-  { key: 'limpeza', label: 'Limpeza (área suja)' },
-  { key: 'preparo', label: 'Preparo e embalagem' },
+  { key: 'recebimento-preparo', label: 'Recebimento, limpeza e preparo' },
   { key: 'carga', label: 'Montagem e retirada da carga' },
   { key: 'liberacao', label: 'Liberação e qualidade' },
   { key: 'expedicao', label: 'Guarda estéril e expedição' },

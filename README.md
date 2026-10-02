@@ -1,10 +1,14 @@
 # Formulário de requisitos — Sistema Steriliza
 
 Versão digital do `Formulário de requisitos.docx`, reestruturada para um **sistema multiunidade**: a Steriliza responde
-um formulário só, que cobre todas as unidades (São Luís, Teresina, Maracanaú e Ananindeua). Como as unidades operam
-igual, cada pergunta é respondida uma vez para a empresa; só a internet vem unidade por unidade. Quase tudo é de
-clicar, e o detalhamento de cada módulo só aparece se ele for prioridade Alta. No fim, a pessoa revisa e envia as
-respostas ao servidor
+um formulário só, que cobre todas as unidades — as próprias (São Luís, Teresina, Maracanaú e Ananindeua) e as duas que
+funcionam dentro de hospitais (Unimed em Teresina e DOMU em São Luís), que operam como uma unidade cada e hoje rodam
+produção e financeiro no mesmo sistema do balcão. Como as unidades operam igual, cada pergunta é respondida uma vez
+para a empresa; só a internet vem unidade por unidade, e a pergunta sobre o balcão dos hospitais só aparece quando uma
+dessas unidades é atendida. O formulário já parte de duas premissas: o sistema roda na nuvem, mas continua operando
+sem internet e sincroniza os dados quando a conexão volta; e o rastreamento da frota se integra à API da Cobli. Quase
+tudo é de clicar, e o detalhamento de cada módulo só aparece se ele for prioridade Alta. No fim, a pessoa revisa e
+envia as respostas ao servidor
 do projeto, que as guarda no PostgreSQL — ou, sem servidor, baixa um pacote `.zip` para mandar por e-mail. O visual
 segue o site [steriliza.com.br](https://steriliza.com.br/): Montserrat, verde-água `#4ab39d`, azul-marinho `#33526b`,
 botões em pílula e o logo de 2025.
@@ -13,29 +17,36 @@ botões em pílula e o logo de 2025.
 
 | Etapa | Conteúdo |
 |---|---|
-| Identificação | Quem responde, onde atua, **quais unidades o sistema vai atender** (todas vêm marcadas) e quem pode completar cada assunto |
-| 1. Sistemas e infraestrutura | Sistemas, o que funciona e o que incomoda, substituir ou integrar e o que migrar, como sai o registro de ciclo de cada equipamento, com o que cada posto registra, integrações, tolerância a parada, hospedagem; **internet por unidade** |
+| Identificação | Quem responde, onde atua, **quais unidades o sistema vai atender** (todas vêm marcadas, inclusive as dentro de hospitais) e a data |
+| 1. Sistemas e infraestrutura | Sistemas, o que funciona e o que incomoda, substituir ou integrar e o que migrar, como sai o registro de ciclo de cada equipamento, com o que cada posto registra, **internet por unidade**, o que precisa continuar **sem internet** e por quanto tempo, integrações, **Cobli** (o que buscar na API do rastreador e quais veículos têm rastreador), tolerância a parada |
 | 2. Rastreabilidade e qualidade | Rastreabilidade (e sistemas dos hospitais, se chega ao paciente), identificação, indicadores, liberação de lote, não conformidades, auditorias, guarda dos registros, normas e acreditações, o que acontece quando um indicador falha |
 | 3. Clientes, logística e faturamento | Tipos de cliente, coleta e entrega, pedido de coleta, base e periodicidade de cobrança, clientes públicos |
-| 4. Módulos e prioridades | Matriz de prioridade dos 13 módulos — é ela que define a primeira entrega |
-| Detalhes dos módulos prioritários | **Só as perguntas dos módulos em prioridade Alta** (2 a 3 por módulo); sem nenhum em Alta, a etapa fica vazia |
+| 4. Módulos e prioridades | Matriz de prioridade dos 13 módulos (recebimento, limpeza e preparo contam como um só; rastreamento da frota pela Cobli é um módulo) — é ela que define a primeira entrega |
+| Detalhes dos módulos prioritários | **Só as perguntas dos módulos em prioridade Alta** (1 a 4 por módulo); sem nenhum em Alta, a etapa fica vazia |
 | 5. Acesso e segurança | Perfis, assinatura, usuários ao mesmo tempo (faixas), LGPD, correção de registros já salvos |
-| 6. Operação multiunidade | O que é comum a todas × de cada unidade (cadastros e configurações), usuários em mais de uma unidade, quem vê tudo, clientes e material entre unidades, CNPJ, novas unidades |
+| 6. Operação multiunidade | O que é comum a todas × de cada unidade (cadastros e configurações), usuários em mais de uma unidade, quem vê tudo, clientes e material entre unidades, CNPJ, novas unidades; **unidades dentro de hospitais** (o que o balcão faz hoje e o que muda no novo sistema — só quando uma delas é atendida) |
 
 A numeração exibida vem da posição (`numberSections` em `src/form/schema.ts`); os **ids das respostas são estáveis**
-e não seguem a numeração — ex.: a pergunta exibida como 1.7 (internet) é gravada como `2.7@<unidade>`. Assim, tirar ou
-incluir uma etapa não muda o significado do que já foi respondido. As etapas Operação atual, Projeto e Documentos
-saíram na versão atual; o motor ainda suporta anexos (`kind: 'documents'`), só não há etapa que os peça.
+e não seguem a numeração — ex.: a pergunta exibida como 1.7 (internet) é gravada como `2.7@<unidade>`, e as perguntas
+novas da versão 4 têm ids `2.12` (Cobli), `2.13` (operação sem internet) e `7.8` (unidades dentro de hospitais — a
+última da etapa multiunidade, para não abrir buraco na numeração quando fica oculta). Assim,
+tirar ou incluir uma etapa não muda o significado do que já foi respondido. As etapas Operação atual, Projeto e
+Documentos saíram na versão 3; a hospedagem (`2.8`, decidida: nuvem com operação offline) e "quem pode completar as
+respostas" (`ident.apoio`) saíram na versão 4. O motor ainda suporta anexos (`kind: 'documents'`), só não há etapa que
+os peça.
 
 ## O que muda em relação ao .docx
 
 - **Um formulário para a empresa**, com salvamento automático no navegador: dá para parar e continuar depois.
 - **Por unidade, só a internet**, com o atalho "Repetir a resposta nas demais unidades". Desmarcar uma unidade na
   identificação tira a linha dela.
-- **Perguntas condicionais**: o que é digitado em dobro só se "Digitação repetida" for marcada; "quais substituir",
-  "o que migrar" e "quanto histórico" conforme a estratégia; sistemas dos hospitais quando a rastreabilidade chega ao
-  paciente; detalhes de clientes públicos, clientes e material entre unidades e novas unidades conforme a resposta.
-- **Detalhes só onde importa**: uma etapa própria mostra 2 a 3 perguntas de cada módulo marcado como prioridade Alta
+- **Perguntas condicionais**: o balcão das unidades dentro de hospitais só quando a Unimed Teresina ou o DOMU São Luís
+  está entre as atendidas (e a opção "Balcão" entre as etapas sem internet idem — uma opção escondida assim deixa de
+  valer como resposta e não sai no pacote); o que é digitado em dobro só se
+  "Digitação repetida" for marcada; "quais substituir", "o que migrar" e "quanto histórico" conforme a estratégia;
+  sistemas dos hospitais quando a rastreabilidade chega ao paciente; detalhes de clientes públicos, clientes e material
+  entre unidades e novas unidades conforme a resposta.
+- **Detalhes só onde importa**: uma etapa própria mostra 1 a 4 perguntas de cada módulo marcado como prioridade Alta
   (regras, exceções, relatórios). Perguntas sem nenhum campo visível não aparecem nem contam no progresso.
 - **Escolhas no lugar de texto livre** onde as respostas se repetem, para comparar e consultar no banco; texto livre
   fica para o que é realmente aberto.
@@ -55,7 +66,7 @@ saíram na versão atual; o motor ainda suporta anexos (`kind: 'documents'`), s�
 - **Envio ao servidor**: quando o formulário é servido pelo `npm run server` (ou `VITE_API_URL` aponta para ele), o
   painel da revisão ganha "Enviar respostas" e devolve um número de protocolo; cada envio vira uma linha no PostgreSQL.
 - **Exportação**: pacote `.zip` com `respostas.json`, `resumo.md` e `anexos/`; também imprimir/salvar PDF e `.json` avulso.
-- **Importação**: "Continuar de um arquivo" reabre um pacote em outro computador (formato v3; pacotes de versões
+- **Importação**: "Continuar de um arquivo" reabre um pacote em outro computador (formato v4; pacotes de versões
   anteriores, que usam os mesmos números com outro significado, são recusados com aviso).
 
 ## Como usar
@@ -93,11 +104,11 @@ direto em SQL — as chaves são os ids das perguntas, e as por unidade levam o 
 uma versão do formulário (`dados->>'versao'`); filtre por ela ao comparar respostas de épocas diferentes:
 
 ```sql
--- Quem respondeu, estratégia para os sistemas atuais (id 2.3) e hospedagem (id 2.8)
+-- Quem respondeu, estratégia para os sistemas atuais (id 2.3) e tempo máximo sem internet (id 2.13.tempo)
 SELECT id, recebido_em, respondente,
        dados->'respostas'->>'2.3' AS estrategia,
-       dados->'respostas'->>'2.8' AS hospedagem
-FROM respostas WHERE dados->>'versao' = '3' ORDER BY id DESC;
+       dados->'respostas'->>'2.13.tempo' AS tempo_sem_internet
+FROM respostas WHERE dados->>'versao' = '4' ORDER BY id DESC;
 
 -- Pontos de atenção da síntese, um por linha
 SELECT r.id, p->>'tone' AS tipo, p->>'text' AS ponto
@@ -159,7 +170,7 @@ O formulário descobre a API sozinho no mesmo domínio; `VITE_API_URL` só é ne
 src/
 ├── form/          # o formulário como dados
 │   ├── schema.ts      perguntas, opções e condições (edite aqui para mudar o formulário)
-│   ├── options.ts     unidades, unitKey/selectedUnits, módulos, documentos
+│   ├── options.ts     unidades (inclusive as dentro de hospitais), unitKey/selectedUnits, módulos, postos
 │   ├── progress.ts    visibilidade condicional, progresso e poda de respostas
 │   ├── format.ts      textos da revisão e do resumo.md
 │   └── sanitize.ts    validação do rascunho e dos arquivos importados

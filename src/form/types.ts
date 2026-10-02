@@ -3,12 +3,15 @@
  * interface, o progresso, a revisão e a exportação são derivados daqui.
  */
 
-export type UnitId = 'sao-luis' | 'teresina' | 'maracanau' | 'ananindeua'
+export type UnitId = 'sao-luis' | 'teresina' | 'maracanau' | 'ananindeua' | 'unimed-teresina' | 'domu-sao-luis'
 
 export interface Unit {
   readonly id: UnitId
-  readonly city: string
+  /** Nome exibido: a cidade nas unidades próprias; hospital e cidade nas que ficam dentro de um hospital. */
+  readonly name: string
   readonly state: string
+  /** Hospital que abriga a unidade. Essas unidades operam como uma unidade, com balcão, produção e financeiro no mesmo sistema. */
+  readonly hospital?: string
 }
 
 export interface Option {

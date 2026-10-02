@@ -13,11 +13,13 @@ import type { AnswerValue, Answers, Field } from './types'
 
 export const FORM_ID = 'steriliza-requisitos'
 /**
- * Versão 3: as unidades operam igual — só volume, equipe e internet são por
- * unidade — e as perguntas foram renumeradas. Versões anteriores usam os mesmos
- * ids com outro significado, por isso não são importadas.
+ * Versão 4: entram as unidades dentro de hospitais (Unimed Teresina e DOMU São
+ * Luís), a integração com a Cobli e a operação sem internet; recebimento, limpeza
+ * e preparo viram uma etapa só, e saem a hospedagem e "quem completa as
+ * respostas". Versões anteriores usam os mesmos ids com outro significado (ex.:
+ * 2.8 era a hospedagem), por isso não são importadas.
  */
-export const FORM_VERSION = 3
+export const FORM_VERSION = 4
 export const MAX_TEXT_LENGTH = 5000
 
 export class ImportError extends Error {

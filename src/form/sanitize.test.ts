@@ -4,15 +4,21 @@ describe('sanitizeAnswers', () => {
   it('mantém respostas válidas, inclusive por unidade', () => {
     const answers = {
       'ident.nome': 'Ana',
-      'ident.unidades': ['sao-luis', 'teresina'],
-      'ident.apoio': ['qualidade', 'informatica'],
-      'ident.apoio.quem': 'Ana, qualidade',
+      'ident.unidades': ['sao-luis', 'teresina', 'domu-sao-luis'],
+      '7.8': ['producao', 'fatura', 'outra:Agenda de coletas'],
+      '7.8.fluxo': 'fluxo-proprio',
+      '7.8.fluxo.oque': 'Recebe e devolve na hora',
       '2.2.incomoda': ['digitacao', 'outra:Etiquetas'],
       '2.4': ['contabil', 'outra:Folha'],
       '2.5.registro': { vapor: 'arquivo', eto: 'impressao' },
-      '2.6.postos': { preparo: 'leitor', motorista: 'papel' },
+      '2.6.postos': { 'recebimento-preparo': 'leitor', motorista: 'papel' },
       '2.7@teresina': 'instavel',
-      '2.9': ['bancos', 'whatsapp'],
+      '2.7@unimed-teresina': 'offline',
+      '2.9': ['bancos', 'whatsapp', 'rastreador'],
+      '2.12': ['posicao', 'chegada'],
+      '2.12.frota': 'todos',
+      '2.13': ['coleta', 'balcao'],
+      '2.13.tempo': 'horas',
       '2.10': 'minutos',
       '2.10.perda': 'nenhum',
       '3.4.quem': 'outra:Enfermeira',
@@ -42,6 +48,13 @@ describe('sanitizeAnswers', () => {
         '2.4.nomes': 'Contábil X',
         '4.3.detalhes': 'x',
         '4.5.obs': 'x',
+        'ident.apoio': ['qualidade'],
+        'ident.apoio.quem': 'Ana, qualidade',
+        '2.8': 'nuvem',
+        '2.6.postos': { preparo: 'leitor', limpeza: 'papel', recebimento: 'movel' },
+        modulos: { recebimento: 'alta', preparo: 'alta' },
+        'm.recebimento.1': ['caixas'],
+        'm.preparo.1': ['checklist'],
       }),
     ).toEqual({ 'ident.nome': 'Ana' })
   })
@@ -120,8 +133,8 @@ describe('parseExport', () => {
     respostas: { 'ident.nome': 'Ana', hack: 1 },
   }
 
-  it('usa a versão 3 do formato, com as perguntas renumeradas', () => {
-    expect(FORM_VERSION).toBe(3)
+  it('usa a versão 4 do formato, com as unidades dentro de hospitais e a operação sem internet', () => {
+    expect(FORM_VERSION).toBe(4)
   })
 
   it('lê um arquivo exportado válido', () => {

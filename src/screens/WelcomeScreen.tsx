@@ -18,7 +18,7 @@ type WelcomeScreenProps = {
 
 type Pending = { readonly kind: 'restart' } | { readonly kind: 'import'; readonly data: ImportedPackage }
 
-/** Perguntas que todos veem; as de detalhe só aparecem conforme as respostas. */
+/** Perguntas visíveis com todas as unidades marcadas (o padrão); as de detalhe e a das unidades dentro de hospitais dependem das respostas. */
 const QUESTION_COUNT = SECTIONS.reduce((sum, section) => sum + visibleBlocks(section, {}).length, 0)
 const STEP_COUNT = SECTIONS.length
 const updatedFormat = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -105,7 +105,7 @@ export function WelcomeScreen({ onStart, onImported }: WelcomeScreenProps) {
               <li key={unit.id} className="tenant" data-active={activeUnits.includes(unit.id)}>
                 <OrbitMark className="tenant__mark" width={34} height={22} />
                 <span className="tenant__state">{unit.state}</span>
-                <span className="tenant__city">{unit.city}</span>
+                <span className="tenant__city">{unit.name}</span>
               </li>
             ))}
           </ul>

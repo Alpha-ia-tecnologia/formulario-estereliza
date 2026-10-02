@@ -9,7 +9,7 @@ import { useAttachments } from '../draft/AttachmentsContext'
 import type { DraftApi } from '../draft/useDraft'
 import { summarize } from '../form/format'
 import { selectedUnits, unitLabel } from '../form/options'
-import { missingRequired, overallProgress } from '../form/progress'
+import { missingRequired, overallProgress, pruneHidden } from '../form/progress'
 import { prefersReducedMotion } from '../lib/transition'
 import { useApi } from '../lib/useApi'
 
@@ -30,7 +30,8 @@ export function ReviewScreen({ draft, goToSection, goHome }: ReviewScreenProps) 
   const [isOnlyBlank, setIsOnlyBlank] = useState(false)
   const attachments = useAttachments()
   const api = useApi()
-  const answers = draft.draft.answers
+  // A revisão mostra só o que vale: sem campos ocultos nem opções escondidas por outras respostas.
+  const answers = pruneHidden(draft.draft.answers)
   const summary = summarize(answers)
   const percent = Math.round(overallProgress(answers).ratio * 100)
   const blocks = summary.flatMap((section) => section.blocks)
